@@ -6,6 +6,7 @@ RUN dnf install -y \
     gcc gcc-c++ \
     libffi-devel openssl-devel \
     cyrus-sasl-devel \
+    git \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 

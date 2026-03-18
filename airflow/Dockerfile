@@ -1,7 +1,7 @@
 FROM redhat/ubi8:latest
 
 # Java 17 (for PySpark) + Python 3.11
-RUN dnf install -y java-17-openjdk-headless python3.11 python3.11-pip gcc python3.11-devel \
+RUN dnf install -y java-17-openjdk-headless python3.11 python3.11-pip gcc python3.11-devel git \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 
