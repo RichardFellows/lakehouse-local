@@ -15,6 +15,7 @@ services:
     image: ghcr.io/projectnessie/nessie:latest
     ports:
       - "19120:19120"
+    profiles: ["spark"]
 
   spark:
     build:
@@ -39,8 +40,33 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
+    profiles: ["spark"]
 
-  airflow:
+  # DuckDB mode: dbt runs in-process, no Spark needed
+  airflow-duckdb:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile.duckdb
+    depends_on:
+      localstack:
+        condition: service_started
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      DBT_PROFILES_DIR: /opt/dbt
+      DBT_TARGET: duckdb
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./dbt_project:/opt/dbt
+    ports:
+      - "8080:8080"
+    command: airflow standalone
+    profiles: ["duckdb"]
+
+  # Spark mode: dbt connects to Spark Thrift Server
+  airflow-spark:
     build:
       context: ./airflow
       dockerfile: Dockerfile
@@ -53,12 +79,14 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
       DBT_PROFILES_DIR: /opt/dbt
+      DBT_TARGET: spark
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
     ports:
       - "8080:8080"
     command: airflow standalone
+    profiles: ["spark"]
 
 volumes:
   localstack-data:

@@ -1,7 +1,24 @@
 lakehouse_local:
-  target: local
+  target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
   outputs:
-    local:
+
+    # Lightweight local dev — no Spark/JVM needed
+    duckdb:
+      type: duckdb
+      path: /opt/dbt/lakehouse.duckdb
+      threads: 4
+      extensions:
+        - iceberg
+        - httpfs
+      settings:
+        s3_endpoint: localstack:4566
+        s3_access_key_id: test
+        s3_secret_access_key: test
+        s3_use_ssl: false
+        s3_url_style: path
+
+    # Full stack parity — Spark Thrift + Iceberg/Nessie
+    spark:
       type: spark
       method: thrift
       host: spark
