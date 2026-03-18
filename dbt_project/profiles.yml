@@ -1,0 +1,10 @@
+lakehouse_local:
+  target: local
+  outputs:
+    local:
+      type: spark
+      method: thrift
+      host: spark
+      port: 10000
+      schema: db
+      threads: 4

@@ -1,0 +1,64 @@
+services:
+  localstack:
+    image: localstack/localstack:latest
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: eu-west-2
+      AWS_DEFAULT_REGION: eu-west-2
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./localstack-init:/etc/localstack/init/ready.d
+      - localstack-data:/var/lib/localstack
+
+  nessie:
+    image: ghcr.io/projectnessie/nessie:latest
+    ports:
+      - "19120:19120"
+
+  spark:
+    build:
+      context: ./spark
+      dockerfile: Dockerfile
+    depends_on:
+      localstack:
+        condition: service_started
+      nessie:
+        condition: service_started
+    environment:
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_REGION: eu-west-2
+    ports:
+      - "7077:7077"
+      - "8081:8080"
+      - "10000:10000"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/10000"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+  airflow:
+    build:
+      context: ./airflow
+      dockerfile: Dockerfile
+    depends_on:
+      spark:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      DBT_PROFILES_DIR: /opt/dbt
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./dbt_project:/opt/dbt
+    ports:
+      - "8080:8080"
+    command: airflow standalone
+
+volumes:
+  localstack-data:

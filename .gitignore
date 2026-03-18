@@ -1,0 +1,15 @@
+# dbt
+dbt_project/target/
+dbt_project/dbt_packages/
+dbt_project/logs/
+
+# Airflow
+airflow/logs/
+airflow/airflow.db
+standalone_admin_password.txt
+
+# Docker
+*.env.local
+
+# OS
+.DS_Store

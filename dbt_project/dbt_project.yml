@@ -1,0 +1,23 @@
+name: lakehouse_local
+version: "1.0.0"
+config-version: 2
+
+profile: lakehouse_local
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+analysis-paths: ["analyses"]
+
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  lakehouse_local:
+    +materialized: table
+    +file_format: iceberg
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table

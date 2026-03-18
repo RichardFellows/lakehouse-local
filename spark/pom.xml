@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>local</groupId>
+  <artifactId>spark-lakehouse-deps</artifactId>
+  <version>1.0</version>
+  <packaging>pom</packaging>
+
+  <properties>
+    <iceberg.version>1.7.1</iceberg.version>
+    <nessie.version>0.99.0</nessie.version>
+    <spark.compat>3.5</spark.compat>
+    <scala.compat>2.12</scala.compat>
+    <hadoop.version>3.3.6</hadoop.version>
+    <aws.sdk.version>2.29.45</aws.sdk.version>
+  </properties>
+
+  <dependencies>
+    <!-- Iceberg Spark runtime (includes Spark extensions) -->
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-spark-runtime-${spark.compat}_${scala.compat}</artifactId>
+      <version>${iceberg.version}</version>
+    </dependency>
+
+    <!-- Iceberg AWS bundle (S3FileIO + Glue support) -->
+    <dependency>
+      <groupId>org.apache.iceberg</groupId>
+      <artifactId>iceberg-aws-bundle</artifactId>
+      <version>${iceberg.version}</version>
+    </dependency>
+
+    <!-- Nessie Spark extensions (branching, merging) -->
+    <dependency>
+      <groupId>org.projectnessie.nessie-integrations</groupId>
+      <artifactId>nessie-spark-extensions-${spark.compat}_${scala.compat}</artifactId>
+      <version>${nessie.version}</version>
+    </dependency>
+
+    <!-- Hadoop AWS (s3a filesystem implementation) -->
+    <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-aws</artifactId>
+      <version>${hadoop.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>com.amazonaws</groupId>
+          <artifactId>aws-java-sdk-bundle</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+
+    <!-- AWS SDK v2 bundle -->
+    <dependency>
+      <groupId>software.amazon.awssdk</groupId>
+      <artifactId>bundle</artifactId>
+      <version>${aws.sdk.version}</version>
+    </dependency>
+  </dependencies>
+</project>
