@@ -37,15 +37,16 @@ All containers use **RHEL 8 (UBI)** base images and JARs are resolved via **Mave
 
 ## Prerequisites
 
-- Docker & Docker Compose
-- ~8GB RAM allocated to Docker
+- Windows 10/11 with Docker Desktop
+- PowerShell 5.1+ (built-in) or PowerShell 7+
+- ~8GB RAM allocated to Docker (Docker Desktop → Settings → Resources)
 - ~5GB disk for images
 
 ## Quick Start
 
-```bash
+```powershell
 # Build and start everything
-make up
+.\lakehouse.ps1 up
 
 # Wait ~60s for Spark Thrift to become healthy, then:
 # 1. Open Airflow UI at http://localhost:8080
@@ -53,22 +54,25 @@ make up
 # 3. Trigger it manually (play button)
 
 # Or run dbt directly:
-make dbt-run
+.\lakehouse.ps1 dbt-run
 
 # Interactive Spark SQL:
-make spark-sql
+.\lakehouse.ps1 spark-sql
 
 # Check what's in Nessie:
-make nessie-contents
+.\lakehouse.ps1 nessie-contents
 
-# Check S3 buckets:
-make s3-list
+# Check LocalStack S3 buckets:
+.\lakehouse.ps1 s3-list
 
 # Tear down:
-make down
+.\lakehouse.ps1 down
 
 # Tear down + remove volumes:
-make clean
+.\lakehouse.ps1 clean
+
+# See all commands:
+.\lakehouse.ps1 help
 ```
 
 ## Components
@@ -147,7 +151,7 @@ lakehouse_local:
 
 ## Nessie Branching (Bonus)
 
-Connect via `make spark-sql` and try:
+Connect via `.\lakehouse.ps1 spark-sql` and try:
 
 ```sql
 -- Create a development branch
@@ -173,15 +177,18 @@ MERGE BRANCH dev INTO main IN nessie;
 
 **dbt can't connect to Spark:**
 - Verify Thrift is healthy: `docker compose ps` (should show "healthy")
-- Test manually: `docker compose exec airflow python3 -c "from pyhive import hive; hive.connect('spark', 10000)"`
+- Test manually: `docker compose exec airflow bash -c "cd /opt/dbt && dbt debug --profiles-dir ."`
 
 **Iceberg table creation fails:**
-- Check Nessie is reachable: `curl http://localhost:19120/api/v2/config`
-- Check S3 buckets exist: `make s3-list`
+- Check Nessie is reachable: `Invoke-RestMethod http://localhost:19120/api/v2/config`
+- Check S3 buckets exist: `.\lakehouse.ps1 s3-list`
 
 **Out of memory:**
-- Increase Docker RAM allocation to 8GB+
-- Reduce Spark memory in `entrypoint.sh` (driver/executor memory)
+- Increase Docker Desktop RAM (Settings → Resources → Memory → 8GB+)
+- Reduce Spark memory in `spark/entrypoint.sh` (driver/executor memory)
+
+**PowerShell execution policy:**
+- If you get "running scripts is disabled", run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 ## License
 
