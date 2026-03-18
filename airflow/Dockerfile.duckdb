@@ -1,21 +1,28 @@
 FROM redhat/ubi8:latest
 
-# Python 3.11 — no JVM needed for DuckDB
-RUN dnf install -y python3.11 python3.11-pip gcc python3.11-devel \
+# Python 3.11 + system deps Airflow needs
+RUN dnf install -y \
+    python3.11 python3.11-pip python3.11-devel \
+    gcc gcc-c++ \
+    libffi-devel openssl-devel \
+    cyrus-sasl-devel \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 
 ENV AIRFLOW_HOME=/opt/airflow
+ENV PIP_NO_CACHE_DIR=1
 
+# Install Airflow with constraints
 ARG AIRFLOW_VERSION=2.10.4
 ARG PYTHON_VERSION=3.11
 ARG CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 
-RUN pip3 install --no-cache-dir \
+RUN pip3 install \
     "apache-airflow==${AIRFLOW_VERSION}" \
     --constraint "${CONSTRAINT_URL}"
 
-RUN pip3 install --no-cache-dir \
+# Install dbt + Cosmos separately (avoids constraint conflicts)
+RUN pip3 install \
     dbt-duckdb \
     astronomer-cosmos
 
