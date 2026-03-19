@@ -6,7 +6,7 @@ RUN dnf install -y java-17-openjdk-devel python3.11 python3.11-pip procps hostna
     && alternatives --set python3 /usr/bin/python3.11
 
 # Maven for dependency resolution
-ARG MAVEN_VERSION=3.9.9
+ARG MAVEN_VERSION=3.9.14
 RUN curl -fsSL https://dlcdn.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/apache-maven-${MAVEN_VERSION}-bin.tar.gz \
     | tar -xz -C /opt \
     && ln -s /opt/apache-maven-${MAVEN_VERSION}/bin/mvn /usr/local/bin/mvn
