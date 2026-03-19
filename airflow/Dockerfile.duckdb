@@ -27,7 +27,8 @@ RUN pip3 install \
     dbt-duckdb \
     "astronomer-cosmos[openlineage]" \
     "marimo[sql]" \
-    altair
+    altair \
+    numpy
 
 RUN mkdir -p ${AIRFLOW_HOME}
 WORKDIR ${AIRFLOW_HOME}
