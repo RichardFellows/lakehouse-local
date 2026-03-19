@@ -25,7 +25,7 @@ RUN pip3 install \
 # Install dbt + Cosmos separately (avoids constraint conflicts)
 RUN pip3 install \
     dbt-duckdb \
-    astronomer-cosmos \
+    "astronomer-cosmos[openlineage]" \
     "marimo[sql]" \
     altair
 

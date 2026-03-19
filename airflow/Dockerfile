@@ -19,7 +19,7 @@ RUN pip3 install --no-cache-dir \
 
 RUN pip3 install --no-cache-dir \
     "dbt-spark[PyHive]" \
-    astronomer-cosmos \
+    "astronomer-cosmos[openlineage]" \
     apache-airflow-providers-apache-spark
 
 RUN mkdir -p ${AIRFLOW_HOME}
