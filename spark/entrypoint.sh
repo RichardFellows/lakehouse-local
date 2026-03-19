@@ -26,11 +26,35 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-echo "Creating Nessie namespaces..."
-spark-sql --master local[*] \
-  -e "CREATE NAMESPACE IF NOT EXISTS nessie.\`default\`; CREATE NAMESPACE IF NOT EXISTS nessie.db;" 2>/dev/null \
-  && echo "Namespaces nessie.default and nessie.db created." \
-  || echo "WARNING: Failed to create namespaces (may already exist)."
+echo "Creating Nessie namespaces via REST API..."
+# Wait for Nessie to be reachable
+for i in $(seq 1 15); do
+  if curl -sf http://nessie:19120/api/v2/config > /dev/null 2>&1; then
+    echo "Nessie API ready."
+    break
+  fi
+  echo "  waiting for Nessie... attempt $i/15"
+  sleep 2
+done
+
+create_namespace() {
+  local ns="$1"
+  local hash
+  hash=$(curl -sf http://nessie:19120/api/v2/trees/main | python3 -c "import sys,json; print(json.load(sys.stdin)['reference']['hash'])")
+  curl -sf -X POST "http://nessie:19120/api/v2/trees/main@${hash}/history/commit" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"commitMeta\": {\"message\": \"create ${ns} namespace\"},
+      \"operations\": [
+        {\"type\": \"PUT\", \"key\": {\"elements\": [\"${ns}\"]}, \"content\": {\"type\": \"NAMESPACE\", \"elements\": [\"${ns}\"]}}
+      ]
+    }" > /dev/null 2>&1 \
+    && echo "  ✓ Namespace '${ns}' created." \
+    || echo "  - Namespace '${ns}' may already exist."
+}
+
+create_namespace "default"
+create_namespace "db"
 
 echo "Spark Thrift Server started on port 10000"
 tail -f ${SPARK_HOME}/logs/*
