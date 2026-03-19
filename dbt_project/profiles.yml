@@ -24,4 +24,5 @@ lakehouse_local:
       host: spark
       port: 10000
       schema: db
+      auth: NOSASL
       threads: 4
