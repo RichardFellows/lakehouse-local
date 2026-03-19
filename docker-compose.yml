@@ -70,6 +70,7 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
+      - ./feeds:/opt/feeds
     ports:
       - "8082:8080"
     command: airflow standalone

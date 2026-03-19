@@ -28,7 +28,8 @@ RUN pip3 install \
     dbt-duckdb \
     "dbt-spark[PyHive]" \
     "astronomer-cosmos[openlineage]" \
-    "apache-airflow-providers-apache-spark<5"
+    "apache-airflow-providers-apache-spark<5" \
+    boto3
 
 # Step 3: Ensure Airflow wasn't upgraded by transitive deps
 RUN pip3 install "apache-airflow==${AIRFLOW_VERSION}" --force-reinstall --no-deps

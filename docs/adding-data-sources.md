@@ -224,3 +224,20 @@ dbt_project/
   ```
 
 - **Testing the full pipeline**: Run `dbt build` instead of `seed` + `run` + `test` separately — it does all three in dependency order.
+
+---
+
+## Production Pattern: File Drops → S3 → Iceberg
+
+For feeds that arrive as file drops (SFTP, network share, etc.), use the `file_ingest` DAG
+instead of seeds. See `feeds/README.md` for details.
+
+```
+feeds/incoming/products.csv  →  S3 (raw-data)  →  Iceberg (nessie.raw.products)  →  dbt marts
+```
+
+To test:
+```bash
+cp feeds/sample_products.csv feeds/incoming/products.csv
+# Wait for DAG or trigger manually in Airflow UI
+```
