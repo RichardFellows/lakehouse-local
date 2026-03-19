@@ -1,32 +1,34 @@
 FROM redhat/ubi8:latest
 
-# Java 17 (for PySpark) + Python 3.11
-RUN dnf install -y java-17-openjdk-headless python3.11 python3.11-pip gcc python3.11-devel git \
+# Java 17 (for Spark adapter) + Python 3.11
+RUN dnf install -y \
+    java-17-openjdk-headless \
+    python3.11 python3.11-pip python3.11-devel \
+    gcc gcc-c++ \
+    libffi-devel openssl-devel cyrus-sasl-devel \
+    git \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 ENV AIRFLOW_HOME=/opt/airflow
+ENV PIP_NO_CACHE_DIR=1
 
-# Constraints file for Airflow compatibility
+# Install Airflow with constraints
 ARG AIRFLOW_VERSION=2.10.4
 ARG PYTHON_VERSION=3.11
 ARG CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
 
-RUN pip3 install --no-cache-dir \
+RUN pip3 install \
     "apache-airflow==${AIRFLOW_VERSION}" \
     --constraint "${CONSTRAINT_URL}"
 
-RUN pip3 install --no-cache-dir \
+# Both dbt adapters + Cosmos + OpenLineage
+RUN pip3 install \
+    dbt-duckdb \
     "dbt-spark[PyHive]" \
     "astronomer-cosmos[openlineage]" \
-    apache-airflow-providers-apache-spark \
-    "marimo[sql]" \
-    duckdb \
-    altair \
-    numpy \
-    pandas \
-    pyarrow
+    apache-airflow-providers-apache-spark
 
 RUN mkdir -p ${AIRFLOW_HOME}
 WORKDIR ${AIRFLOW_HOME}

@@ -1,11 +1,8 @@
 """
-Lakehouse DAG: Airflow → dbt → Spark (Iceberg/Nessie)
+Lakehouse DAG — DuckDB Engine
 
-Demonstrates the full local lakehouse stack:
-1. Seed reference data via dbt
-2. Run staging models (views)
-3. Build mart tables (Iceberg via Spark Thrift)
-4. Run dbt tests
+Runs dbt transforms using DuckDB as the compute engine.
+DuckDB runs in-process — no external services needed beyond S3 (LocalStack).
 """
 
 from datetime import datetime, timedelta
@@ -14,7 +11,7 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 
 DBT_DIR = "/opt/dbt"
-DBT_CMD = f"cd {DBT_DIR} && dbt"
+DBT_CMD = f"cd {DBT_DIR} && DBT_TARGET=duckdb dbt"
 
 default_args = {
     "owner": "lakehouse",
@@ -23,13 +20,13 @@ default_args = {
 }
 
 with DAG(
-    dag_id="lakehouse_dbt_spark",
-    description="dbt transformations on Spark/Iceberg/Nessie lakehouse",
+    dag_id="lakehouse_duckdb",
+    description="dbt transforms on DuckDB (lightweight, in-process)",
     start_date=datetime(2026, 1, 1),
     schedule="@daily",
     catchup=False,
     default_args=default_args,
-    tags=["lakehouse", "dbt", "spark", "iceberg"],
+    tags=["lakehouse", "dbt", "duckdb"],
 ) as dag:
 
     dbt_debug = BashOperator(

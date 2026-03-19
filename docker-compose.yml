@@ -40,38 +40,15 @@ services:
       retries: 30
       start_period: 30s
 
-  # DuckDB Airflow instance — dbt runs DuckDB in-process
-  airflow-duckdb:
-    build:
-      context: ./airflow
-      dockerfile: Dockerfile.duckdb
-    depends_on:
-      localstack:
-        condition: service_started
-    environment:
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
-      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
-      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
-      DBT_PROFILES_DIR: /opt/dbt
-      DBT_TARGET: duckdb
-      LAKEHOUSE_DB: /opt/dbt/lakehouse.duckdb
-    volumes:
-      - ./dags:/opt/airflow/dags
-      - ./dbt_project:/opt/dbt
-      - ./notebooks:/opt/notebooks
-    ports:
-      - "8080:8080"
-      - "2718:2718"
-    command: airflow standalone
-
-  # Spark Airflow instance — dbt connects to Spark Thrift Server
-  # Also hosts the side-by-side notebook (has both pyhive + duckdb)
-  airflow-spark:
+  # Single Airflow instance with both dbt-duckdb and dbt-spark adapters
+  # Two DAGs: one targets DuckDB, one targets Spark
+  airflow:
     build:
       context: ./airflow
       dockerfile: Dockerfile
     depends_on:
+      localstack:
+        condition: service_started
       spark:
         condition: service_healthy
     environment:
@@ -80,16 +57,31 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
       DBT_PROFILES_DIR: /opt/dbt
-      DBT_TARGET: spark
-      LAKEHOUSE_DB: /opt/dbt/lakehouse.duckdb
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
-      - ./notebooks:/opt/notebooks
     ports:
-      - "8090:8080"
-      - "2719:2718"
+      - "8080:8080"
     command: airflow standalone
+
+  # Marimo notebook — queries both DuckDB and Spark side by side
+  notebook:
+    build:
+      context: ./notebook
+      dockerfile: Dockerfile
+    depends_on:
+      localstack:
+        condition: service_started
+    environment:
+      LAKEHOUSE_DB: /opt/dbt/lakehouse.duckdb
+      SPARK_THRIFT_HOST: spark
+      SPARK_THRIFT_PORT: "10000"
+    volumes:
+      - ./notebooks:/opt/notebooks
+      - ./dbt_project:/opt/dbt:ro
+    ports:
+      - "2718:2718"
+    command: marimo run /opt/notebooks/explore.py --host 0.0.0.0 --port 2718
 
 volumes:
   localstack-data:
