@@ -1,6 +1,9 @@
 FROM redhat/ubi8:latest
 
-RUN dnf install -y python3.11 python3.11-pip \
+RUN dnf install -y \
+    python3.11 python3.11-pip python3.11-devel \
+    gcc gcc-c++ \
+    cyrus-sasl-devel \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 
@@ -9,6 +12,8 @@ RUN pip3 install --no-cache-dir \
     duckdb \
     "pyhive[hive]" \
     thrift \
+    sasl \
+    thrift-sasl \
     altair \
     numpy \
     pandas \
