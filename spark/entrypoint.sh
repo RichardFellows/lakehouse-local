@@ -25,11 +25,11 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-echo "Creating Nessie default namespace..."
+echo "Creating Nessie namespaces..."
 spark-sql --master local[*] \
-  -e "CREATE NAMESPACE IF NOT EXISTS nessie.\`default\`;" 2>/dev/null \
-  && echo "Namespace nessie.default created." \
-  || echo "WARNING: Failed to create namespace (may already exist)."
+  -e "CREATE NAMESPACE IF NOT EXISTS nessie.\`default\`; CREATE NAMESPACE IF NOT EXISTS nessie.db;" 2>/dev/null \
+  && echo "Namespaces nessie.default and nessie.db created." \
+  || echo "WARNING: Failed to create namespaces (may already exist)."
 
 echo "Spark Thrift Server started on port 10000"
 tail -f ${SPARK_HOME}/logs/*
