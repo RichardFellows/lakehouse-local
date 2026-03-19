@@ -50,7 +50,7 @@ def _(mo, os):
 
         spark_host = os.environ.get("SPARK_THRIFT_HOST", "spark")
         spark_port = int(os.environ.get("SPARK_THRIFT_PORT", "10000"))
-        spark_con = hive.connect(host=spark_host, port=spark_port)
+        spark_con = hive.connect(host=spark_host, port=spark_port, auth="NOSASL")
         spark_status = f"✅ Spark Thrift connected (`{spark_host}:{spark_port}`)"
     except ImportError:
         spark_status = "❌ Spark: `pyhive` not installed"

@@ -13,7 +13,8 @@ start-thriftserver.sh \
   --driver-memory 2g \
   --conf spark.executor.memory=2g \
   --hiveconf hive.server2.thrift.port=10000 \
-  --hiveconf hive.server2.thrift.bind.host=0.0.0.0
+  --hiveconf hive.server2.thrift.bind.host=0.0.0.0 \
+  --hiveconf hive.server2.authentication=NOSASL
 
 echo "Waiting for Thrift Server to accept connections..."
 for i in $(seq 1 30); do
