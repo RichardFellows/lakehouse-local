@@ -26,7 +26,7 @@ RUN pip3 install \
 RUN pip3 install \
     dbt-duckdb \
     astronomer-cosmos \
-    marimo \
+    "marimo[sql]" \
     altair
 
 RUN mkdir -p ${AIRFLOW_HOME}
