@@ -20,7 +20,8 @@ RUN pip3 install --no-cache-dir \
     pandas \
     pyarrow \
     future \
-    python-dateutil
+    python-dateutil \
+    "pyiceberg[s3fs,pyarrow]"
 
 EXPOSE 2718
 CMD ["marimo", "run", "/opt/notebooks/explore.py", "--host", "0.0.0.0", "--port", "2718"]

@@ -12,9 +12,19 @@ services:
       - localstack-data:/var/lib/localstack
 
   nessie:
-    image: ghcr.io/projectnessie/nessie:latest
+    image: ghcr.io/projectnessie/nessie:0.107.4
     ports:
       - "19120:19120"
+    environment:
+      # Iceberg REST catalog for PyIceberg + DuckDB Iceberg access
+      - nessie.catalog.default-warehouse=warehouse
+      - nessie.catalog.warehouses.warehouse.location=s3://warehouse/
+      - nessie.catalog.service.s3.default-options.region=eu-west-2
+      - nessie.catalog.service.s3.default-options.path-style-access=true
+      - nessie.catalog.service.s3.default-options.endpoint=http://localstack:4566
+      - nessie.catalog.service.s3.default-options.access-key=urn:nessie-secret:quarkus:nessie.catalog.secrets.access-key
+      - nessie.catalog.secrets.access-key.name=test
+      - nessie.catalog.secrets.access-key.secret=test
 
   spark:
     build:
@@ -76,6 +86,8 @@ services:
       LAKEHOUSE_DB: /opt/dbt/lakehouse.duckdb
       SPARK_THRIFT_HOST: spark
       SPARK_THRIFT_PORT: "10000"
+      NESSIE_URI: http://nessie:19120/iceberg/
+      S3_ENDPOINT: http://localstack:4566
     volumes:
       - ./notebooks:/opt/notebooks
       - ./dbt_project:/opt/dbt:ro
