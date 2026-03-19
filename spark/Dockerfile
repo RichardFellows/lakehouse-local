@@ -12,7 +12,7 @@ RUN curl -fsSL https://dlcdn.apache.org/maven/maven-3/${MAVEN_VERSION}/binaries/
     && ln -s /opt/apache-maven-${MAVEN_VERSION}/bin/mvn /usr/local/bin/mvn
 
 # Spark
-ARG SPARK_VERSION=3.5.4
+ARG SPARK_VERSION=3.5.8
 ARG HADOOP_VERSION=3
 RUN curl -fsSL https://dlcdn.apache.org/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
     | tar -xz -C /opt \
