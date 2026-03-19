@@ -5,17 +5,22 @@ RUN dnf install -y \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 
+# pyhive[hive] pulls in C 'sasl' which is broken on Python 3.11+
+# Instead: install pyhive (base) + pure-sasl + thrift-sasl manually
 RUN pip3 install --no-cache-dir \
+    pure-sasl \
+    thrift \
+    && pip3 install --no-cache-dir --no-deps thrift-sasl \
+    && pip3 install --no-cache-dir --no-deps pyhive \
+    && pip3 install --no-cache-dir \
     "marimo[sql]" \
     duckdb \
-    "pyhive[hive]" \
-    thrift \
-    thrift-sasl \
-    pure-sasl \
     altair \
     numpy \
     pandas \
-    pyarrow
+    pyarrow \
+    future \
+    python-dateutil
 
 EXPOSE 2718
 CMD ["marimo", "run", "/opt/notebooks/explore.py", "--host", "0.0.0.0", "--port", "2718"]
