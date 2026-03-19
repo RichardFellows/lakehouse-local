@@ -20,7 +20,12 @@ RUN pip3 install --no-cache-dir \
 RUN pip3 install --no-cache-dir \
     "dbt-spark[PyHive]" \
     "astronomer-cosmos[openlineage]" \
-    apache-airflow-providers-apache-spark
+    apache-airflow-providers-apache-spark \
+    "marimo[sql]" \
+    altair \
+    numpy \
+    pandas \
+    pyarrow
 
 RUN mkdir -p ${AIRFLOW_HOME}
 WORKDIR ${AIRFLOW_HOME}

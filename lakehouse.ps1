@@ -128,13 +128,15 @@ switch ($Command) {
     }
 
     "notebook" {
-        if ($Engine -ne "duckdb") {
-            Write-Host "Marimo notebook requires DuckDB mode (default)" -ForegroundColor Red
-            return
-        }
-        Write-Host "Starting Marimo notebook..." -ForegroundColor Yellow
+        Write-Host "Starting Marimo notebook ($Engine engine)..." -ForegroundColor Yellow
         Write-Host "  Open http://localhost:2718 in your browser" -ForegroundColor Green
-        docker compose exec $airflowService bash -c "cd /opt && LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
+
+        if ($Engine -eq "spark") {
+            docker compose exec $airflowService bash -c "cd /opt && LAKEHOUSE_ENGINE=spark SPARK_THRIFT_HOST=spark SPARK_THRIFT_PORT=10000 marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
+        }
+        else {
+            docker compose exec $airflowService bash -c "cd /opt && LAKEHOUSE_ENGINE=duckdb LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
+        }
     }
 
     "help" {

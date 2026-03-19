@@ -86,8 +86,10 @@ services:
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
+      - ./notebooks:/opt/notebooks
     ports:
       - "8080:8080"
+      - "2718:2718"
     command: airflow standalone
     profiles: ["spark"]
 

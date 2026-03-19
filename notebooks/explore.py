@@ -5,55 +5,109 @@ app = marimo.App(width="medium")
 
 
 @app.cell
+def _():
+    import marimo as mo
+    return (mo,)
+
+
+@app.cell
 def _(mo):
     mo.md(
         """
         # Lakehouse Explorer
 
-        Query the DuckDB lakehouse after dbt has run.
-        This notebook connects to the same DuckDB database that dbt writes to
-        and lets you explore the staged and mart tables interactively.
+        Query the lakehouse after dbt has run. Supports two connection modes:
 
-        **Prerequisites:** Run `.\lakehouse.ps1 dbt-run` first to populate the tables.
+        - **DuckDB** (default) — connects to the local `.duckdb` file
+        - **Spark** — connects to Spark Thrift Server via PyHive
+
+        Set the `LAKEHOUSE_ENGINE` environment variable to `spark` to use Spark mode.
+
+        **Prerequisites:** Run `dbt-run` first to populate the tables.
         """
     )
     return
 
 
 @app.cell
-def _():
-    import marimo as mo
-    import duckdb
+def _(mo):
     import os
-    return duckdb, mo, os
+
+    engine = os.environ.get("LAKEHOUSE_ENGINE", "duckdb")
+    mo.md(f"**Engine:** `{engine}`")
+    return engine, os
 
 
 @app.cell
-def _(duckdb, mo, os):
-    # Connect to the dbt DuckDB database
-    db_path = os.environ.get("LAKEHOUSE_DB", "dbt_project/lakehouse.duckdb")
-    try:
-        con = duckdb.connect(db_path, read_only=True)
-        mo.md(f"✅ Connected to `{db_path}`")
-    except Exception as e:
-        mo.md(f"❌ Failed to connect to `{db_path}`: {e}")
-        con = None
-    return con, db_path
+def _(engine, mo, os):
+    con = None
+    engine_label = engine
+
+    if engine == "spark":
+        try:
+            from pyhive import hive
+
+            spark_host = os.environ.get("SPARK_THRIFT_HOST", "spark")
+            spark_port = int(os.environ.get("SPARK_THRIFT_PORT", "10000"))
+            con = hive.connect(host=spark_host, port=spark_port)
+            engine_label = f"Spark Thrift ({spark_host}:{spark_port})"
+            mo.md(f"✅ Connected to **{engine_label}**")
+        except ImportError:
+            mo.md("❌ `pyhive` not installed. Install with: `pip install PyHive`")
+        except Exception as e:
+            mo.md(f"❌ Failed to connect to Spark Thrift: `{e}`")
+    else:
+        try:
+            import duckdb
+
+            db_path = os.environ.get("LAKEHOUSE_DB", "dbt_project/lakehouse.duckdb")
+            con = duckdb.connect(db_path, read_only=True)
+            engine_label = f"DuckDB ({db_path})"
+            mo.md(f"✅ Connected to **{engine_label}**")
+        except Exception as e:
+            mo.md(f"❌ Failed to connect to DuckDB: `{e}`")
+
+    return con, engine_label
 
 
 @app.cell
-def _(con, mo):
-    # Show all tables
-    if con:
-        tables = con.execute("SHOW TABLES").fetchdf()
-        mo.md("## Tables in the lakehouse")
-    return tables,
+def _(con, engine, mo):
+    import pandas as pd
+
+    def run_query(sql):
+        """Execute SQL and return a pandas DataFrame, works with both DuckDB and PyHive."""
+        if con is None:
+            return pd.DataFrame()
+        if engine == "spark":
+            cursor = con.cursor()
+            cursor.execute(sql)
+            columns = [desc[0] for desc in cursor.description]
+            rows = cursor.fetchall()
+            return pd.DataFrame(rows, columns=columns)
+        else:
+            return con.execute(sql).fetchdf()
+
+    mo.md("_Query helper ready_")
+    return pd, run_query
 
 
 @app.cell
-def _(mo, tables):
-    mo.ui.table(tables) if tables is not None and len(tables) > 0 else mo.md("_No tables found. Run dbt first._")
+def _(mo):
+    mo.md("## Tables")
     return
+
+
+@app.cell
+def _(engine, mo, run_query):
+    try:
+        if engine == "spark":
+            tables_df = run_query("SHOW TABLES")
+        else:
+            tables_df = run_query("SHOW TABLES")
+        mo.ui.table(tables_df)
+    except Exception as e:
+        mo.md(f"_Could not list tables: {e}_")
+    return (tables_df,)
 
 
 @app.cell
@@ -63,14 +117,13 @@ def _(mo):
 
 
 @app.cell
-def _(con, mo):
-    if con:
-        try:
-            customers_df = con.execute("SELECT * FROM stg_customers").fetchdf()
-            mo.ui.table(customers_df)
-        except Exception as e:
-            mo.md(f"_Table not found: {e}. Run `dbt seed` and `dbt run` first._")
-    return customers_df,
+def _(mo, run_query):
+    try:
+        customers_df = run_query("SELECT * FROM stg_customers")
+        mo.ui.table(customers_df)
+    except Exception as e:
+        mo.md(f"_Table not found: {e}. Run dbt first._")
+    return (customers_df,)
 
 
 @app.cell
@@ -80,14 +133,13 @@ def _(mo):
 
 
 @app.cell
-def _(con, mo):
-    if con:
-        try:
-            orders_df = con.execute("SELECT * FROM stg_orders").fetchdf()
-            mo.ui.table(orders_df)
-        except Exception as e:
-            mo.md(f"_Table not found: {e}. Run `dbt seed` and `dbt run` first._")
-    return orders_df,
+def _(mo, run_query):
+    try:
+        orders_df = run_query("SELECT * FROM stg_orders")
+        mo.ui.table(orders_df)
+    except Exception as e:
+        mo.md(f"_Table not found: {e}. Run dbt first._")
+    return (orders_df,)
 
 
 @app.cell
@@ -97,14 +149,13 @@ def _(mo):
 
 
 @app.cell
-def _(con, mo):
-    if con:
-        try:
-            mart_df = con.execute("SELECT * FROM customer_orders ORDER BY total_revenue DESC").fetchdf()
-            mo.ui.table(mart_df)
-        except Exception as e:
-            mo.md(f"_Table not found: {e}. Run `dbt run` first._")
-    return mart_df,
+def _(mo, run_query):
+    try:
+        mart_df = run_query("SELECT * FROM customer_orders ORDER BY total_revenue DESC")
+        mo.ui.table(mart_df)
+    except Exception as e:
+        mo.md(f"_Table not found: {e}. Run dbt first._")
+    return (mart_df,)
 
 
 @app.cell
@@ -121,48 +172,35 @@ def _(mo):
 
 
 @app.cell
-def _(con, mo):
-    if con:
-        try:
-            tier_df = con.execute(
-                """
-                SELECT
-                    customer_tier,
-                    COUNT(*) as customer_count,
-                    SUM(total_orders) as total_orders,
-                    ROUND(SUM(total_revenue), 2) as total_revenue,
-                    ROUND(AVG(total_revenue), 2) as avg_revenue_per_customer
-                FROM customer_orders
-                GROUP BY customer_tier
-                ORDER BY total_revenue DESC
-                """
-            ).fetchdf()
-            mo.ui.table(tier_df)
-        except Exception as e:
-            mo.md(f"_Query failed: {e}_")
-    return tier_df,
+def _(mo, run_query):
+    try:
+        tier_df = run_query(
+            """
+            SELECT
+                customer_tier,
+                COUNT(*) as customer_count,
+                SUM(total_orders) as total_orders,
+                ROUND(SUM(total_revenue), 2) as total_revenue,
+                ROUND(AVG(total_revenue), 2) as avg_revenue_per_customer
+            FROM customer_orders
+            GROUP BY customer_tier
+            ORDER BY total_revenue DESC
+            """
+        )
+        mo.ui.table(tier_df)
+    except Exception as e:
+        mo.md(f"_Query failed: {e}_")
+    return (tier_df,)
 
 
 @app.cell
 def _(mo, tier_df):
-    # Bar chart of revenue by tier
     try:
-        chart = mo.ui.altair_chart(
-            _create_chart(tier_df),
-        )
-        chart
-    except Exception:
-        mo.md("_Install altair for charts: `pip install altair`_")
-    return chart,
-
-
-@app.cell
-def _():
-    def _create_chart(df):
         import altair as alt
 
-        return (
-            alt.Chart(df)
+        chart_data = tier_df.copy()
+        chart = mo.ui.altair_chart(
+            alt.Chart(chart_data)
             .mark_bar()
             .encode(
                 x=alt.X("customer_tier:N", title="Customer Tier", sort="-y"),
@@ -178,8 +216,12 @@ def _():
             )
             .properties(width=400, height=300, title="Revenue by Customer Tier")
         )
-
-    return (_create_chart,)
+        chart
+    except ImportError:
+        mo.md("_Install altair for charts: `pip install altair`_")
+    except Exception as e:
+        mo.md(f"_Chart error: {e}_")
+    return
 
 
 @app.cell
@@ -202,18 +244,31 @@ def _(mo):
         min_height=80,
     )
     query_input
-    return query_input,
+    return (query_input,)
 
 
 @app.cell
-def _(con, mo, query_input):
-    if con and query_input.value.strip():
+def _(mo, query_input, run_query):
+    if query_input.value.strip():
         try:
-            result_df = con.execute(query_input.value).fetchdf()
+            result_df = run_query(query_input.value)
             mo.ui.table(result_df)
         except Exception as e:
             mo.md(f"❌ Query error: `{e}`")
-    return result_df,
+    return
+
+
+@app.cell
+def _(engine, engine_label, mo):
+    mo.md(
+        f"""
+        ---
+        **Connection:** {engine_label} | **Engine:** `{engine}`
+
+        Switch engines by setting `LAKEHOUSE_ENGINE=spark` or `LAKEHOUSE_ENGINE=duckdb`
+        """
+    )
+    return
 
 
 if __name__ == "__main__":

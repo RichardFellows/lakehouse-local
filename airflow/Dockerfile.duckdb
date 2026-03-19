@@ -28,7 +28,9 @@ RUN pip3 install \
     "astronomer-cosmos[openlineage]" \
     "marimo[sql]" \
     altair \
-    numpy
+    numpy \
+    pandas \
+    pyarrow
 
 RUN mkdir -p ${AIRFLOW_HOME}
 WORKDIR ${AIRFLOW_HOME}
