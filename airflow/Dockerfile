@@ -14,7 +14,7 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 ENV AIRFLOW_HOME=/opt/airflow
 ENV PIP_NO_CACHE_DIR=1
 
-# Install Airflow with constraints
+# Step 1: Install Airflow with constraints (pins compatible versions)
 ARG AIRFLOW_VERSION=2.10.4
 ARG PYTHON_VERSION=3.11
 ARG CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
@@ -23,12 +23,15 @@ RUN pip3 install \
     "apache-airflow==${AIRFLOW_VERSION}" \
     --constraint "${CONSTRAINT_URL}"
 
-# Both dbt adapters + Cosmos + OpenLineage
+# Step 2: Install dbt adapters + Cosmos (without constraints — they conflict)
 RUN pip3 install \
     dbt-duckdb \
     "dbt-spark[PyHive]" \
     "astronomer-cosmos[openlineage]" \
-    apache-airflow-providers-apache-spark
+    "apache-airflow-providers-apache-spark<5"
+
+# Step 3: Ensure Airflow wasn't upgraded by transitive deps
+RUN pip3 install "apache-airflow==${AIRFLOW_VERSION}" --force-reinstall --no-deps
 
 RUN mkdir -p ${AIRFLOW_HOME}
 WORKDIR ${AIRFLOW_HOME}
