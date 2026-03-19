@@ -2,13 +2,14 @@
 .SYNOPSIS
     Lakehouse Local - Management Script
 .DESCRIPTION
-    Manages the local Airflow + dbt + Spark/Iceberg/Nessie stack.
-    Supports two engine modes: duckdb (default, lightweight) and spark (full stack).
+    Manages the local Airflow + dbt lakehouse stack.
+    Runs both DuckDB and Spark engines side by side to demonstrate
+    the same dbt transforms running on different targets.
 .EXAMPLE
-    .\lakehouse.ps1 up                # Start with DuckDB (default)
-    .\lakehouse.ps1 up -Engine spark  # Start with Spark + Nessie
-    .\lakehouse.ps1 spark-sql         # Interactive Spark SQL (spark mode only)
-    .\lakehouse.ps1 dbt-run
+    .\lakehouse.ps1 up              # Start both engines
+    .\lakehouse.ps1 dbt-run         # Run dbt on both engines
+    .\lakehouse.ps1 dbt-run duckdb  # Run dbt on DuckDB only
+    .\lakehouse.ps1 notebook duckdb # Launch DuckDB notebook
 #>
 
 param(
@@ -20,105 +21,126 @@ param(
     )]
     [string]$Command = "help",
 
-    [ValidateSet("duckdb", "spark")]
-    [string]$Engine = "duckdb"
+    [Parameter(Position = 1)]
+    [ValidateSet("all", "duckdb", "spark")]
+    [string]$Target = "all"
 )
-
-# Resolve which compose profile and airflow service to use
-$profile = $Engine
-$airflowService = "airflow-$Engine"
 
 function Write-Banner {
     Write-Host ""
     Write-Host "  Lakehouse Local" -ForegroundColor Cyan
-    Write-Host "  Airflow + dbt + $($Engine.ToUpper()) engine" -ForegroundColor DarkGray
+    Write-Host "  Airflow + dbt — DuckDB & Spark side by side" -ForegroundColor DarkGray
     Write-Host ""
+}
+
+function Run-OnTarget {
+    param(
+        [string]$Label,
+        [string]$Service,
+        [string]$Cmd
+    )
+    Write-Host "  [$Label] $Cmd" -ForegroundColor DarkGray
+    docker compose exec $Service bash -c $Cmd
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  [$Label] FAILED (exit code $LASTEXITCODE)" -ForegroundColor Red
+    }
+    else {
+        Write-Host "  [$Label] OK" -ForegroundColor Green
+    }
+}
+
+function Run-Dbt {
+    param([string]$DbtCmd)
+    $fullCmd = "cd /opt/dbt && dbt $DbtCmd --profiles-dir ."
+
+    if ($Target -eq "all" -or $Target -eq "duckdb") {
+        Run-OnTarget -Label "DuckDB" -Service "airflow-duckdb" -Cmd $fullCmd
+    }
+    if ($Target -eq "all" -or $Target -eq "spark") {
+        Run-OnTarget -Label "Spark" -Service "airflow-spark" -Cmd $fullCmd
+    }
 }
 
 switch ($Command) {
     "build" {
-        Write-Host "Building containers ($Engine mode)..." -ForegroundColor Yellow
-        docker compose --profile $profile build
+        Write-Host "Building all containers..." -ForegroundColor Yellow
+        docker compose build
     }
 
     "up" {
-        Write-Host "Building and starting stack ($Engine mode)..." -ForegroundColor Yellow
-        docker compose --profile $profile build
-        docker compose --profile $profile up -d
+        Write-Host "Building and starting full stack..." -ForegroundColor Yellow
+        docker compose build
+        docker compose up -d
 
         Write-Banner
-        Write-Host "  Airflow UI:   http://localhost:8080  (check standalone_admin_password.txt for creds)" -ForegroundColor Green
-        Write-Host "  LocalStack:   http://localhost:4566" -ForegroundColor Green
-
-        if ($Engine -eq "spark") {
-            Write-Host "  Spark UI:     http://localhost:8081" -ForegroundColor Green
-            Write-Host "  Nessie API:   http://localhost:19120" -ForegroundColor Green
-            Write-Host "  Spark Thrift: localhost:10000" -ForegroundColor Green
-            Write-Host ""
-            Write-Host "  Wait ~60s for Spark Thrift to be healthy, then trigger the DAG." -ForegroundColor DarkYellow
-        }
-        else {
-            Write-Host ""
-            Write-Host "  DuckDB mode — no Spark containers needed. Ready in ~10s." -ForegroundColor DarkYellow
-        }
+        Write-Host "  DuckDB Airflow:  http://localhost:8080" -ForegroundColor Green
+        Write-Host "  Spark Airflow:   http://localhost:8090" -ForegroundColor Green
+        Write-Host "  Spark UI:        http://localhost:8081" -ForegroundColor Green
+        Write-Host "  Nessie API:      http://localhost:19120" -ForegroundColor Green
+        Write-Host "  LocalStack:      http://localhost:4566" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "  DuckDB notebook: http://localhost:2718  (.\lakehouse.ps1 notebook duckdb)" -ForegroundColor DarkGray
+        Write-Host "  Spark notebook:  http://localhost:2719  (.\lakehouse.ps1 notebook spark)" -ForegroundColor DarkGray
+        Write-Host ""
+        Write-Host "  Wait ~60s for Spark Thrift to be healthy." -ForegroundColor DarkYellow
+        Write-Host "  Both Airflow UIs have the same DAG — trigger each to see dbt run on both engines." -ForegroundColor DarkYellow
         Write-Host ""
     }
 
     "down" {
         Write-Host "Stopping stack..." -ForegroundColor Yellow
-        # Stop all profiles to catch either mode
-        docker compose --profile duckdb --profile spark down
+        docker compose down
     }
 
     "clean" {
         Write-Host "Stopping stack and removing volumes..." -ForegroundColor Red
-        docker compose --profile duckdb --profile spark down -v
+        docker compose down -v
     }
 
     "logs" {
-        docker compose --profile $profile logs -f
+        if ($Target -eq "duckdb") {
+            docker compose logs -f airflow-duckdb
+        }
+        elseif ($Target -eq "spark") {
+            docker compose logs -f airflow-spark spark nessie
+        }
+        else {
+            docker compose logs -f
+        }
     }
 
     "status" {
-        docker compose --profile duckdb --profile spark ps
+        docker compose ps
     }
 
     "spark-sql" {
-        if ($Engine -ne "spark") {
-            Write-Host "spark-sql requires -Engine spark" -ForegroundColor Red
-            Write-Host "  .\lakehouse.ps1 spark-sql -Engine spark" -ForegroundColor DarkGray
-            return
-        }
         Write-Host "Opening Spark SQL shell..." -ForegroundColor Yellow
         docker compose exec spark spark-sql
     }
 
     "dbt-run" {
-        Write-Host "Running dbt models ($Engine target)..." -ForegroundColor Yellow
-        docker compose exec $airflowService bash -c "cd /opt/dbt && dbt run --profiles-dir ."
+        Write-Host "Running dbt models..." -ForegroundColor Yellow
+        Run-Dbt "run"
     }
 
     "dbt-test" {
-        Write-Host "Running dbt tests ($Engine target)..." -ForegroundColor Yellow
-        docker compose exec $airflowService bash -c "cd /opt/dbt && dbt test --profiles-dir ."
+        Write-Host "Running dbt tests..." -ForegroundColor Yellow
+        Run-Dbt "test"
     }
 
     "dbt-debug" {
-        Write-Host "Running dbt debug ($Engine target)..." -ForegroundColor Yellow
-        docker compose exec $airflowService bash -c "cd /opt/dbt && dbt debug --profiles-dir ."
+        Write-Host "Running dbt debug..." -ForegroundColor Yellow
+        Run-Dbt "debug"
     }
 
     "nessie-contents" {
-        if ($Engine -ne "spark") {
-            Write-Host "Nessie is only used in spark mode" -ForegroundColor DarkYellow
-        }
         Write-Host "Nessie catalog contents:" -ForegroundColor Yellow
         try {
             $response = Invoke-RestMethod -Uri "http://localhost:19120/api/v2/trees/main/entries"
             $response | ConvertTo-Json -Depth 10
         }
         catch {
-            Write-Host "Nessie not reachable. Is it running? (.\lakehouse.ps1 up -Engine spark)" -ForegroundColor Red
+            Write-Host "Nessie not reachable. Is the stack running?" -ForegroundColor Red
         }
     }
 
@@ -128,47 +150,62 @@ switch ($Command) {
     }
 
     "notebook" {
-        Write-Host "Starting Marimo notebook ($Engine engine)..." -ForegroundColor Yellow
-        Write-Host "  Open http://localhost:2718 in your browser" -ForegroundColor Green
+        if ($Target -eq "all") {
+            Write-Host "Specify which notebook: .\lakehouse.ps1 notebook duckdb  OR  .\lakehouse.ps1 notebook spark" -ForegroundColor Yellow
+            return
+        }
 
-        if ($Engine -eq "spark") {
-            docker compose exec $airflowService bash -c "cd /opt && LAKEHOUSE_ENGINE=spark SPARK_THRIFT_HOST=spark SPARK_THRIFT_PORT=10000 marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
+        if ($Target -eq "spark") {
+            Write-Host "Starting Spark notebook on http://localhost:2719 ..." -ForegroundColor Yellow
+            docker compose exec airflow-spark bash -c "cd /opt && LAKEHOUSE_ENGINE=spark SPARK_THRIFT_HOST=spark SPARK_THRIFT_PORT=10000 marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
         }
         else {
-            docker compose exec $airflowService bash -c "cd /opt && LAKEHOUSE_ENGINE=duckdb LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
+            Write-Host "Starting DuckDB notebook on http://localhost:2718 ..." -ForegroundColor Yellow
+            docker compose exec airflow-duckdb bash -c "cd /opt && LAKEHOUSE_ENGINE=duckdb LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
         }
     }
 
     "help" {
         Write-Banner
-        Write-Host "  Usage: .\lakehouse.ps1 <command> [-Engine duckdb|spark]" -ForegroundColor White
+        Write-Host "  Usage: .\lakehouse.ps1 <command> [target]" -ForegroundColor White
         Write-Host ""
-        Write-Host "  Engine Modes:" -ForegroundColor Yellow
-        Write-Host "    duckdb (default)  Lightweight — dbt runs DuckDB in-process, no JVM"
-        Write-Host "    spark             Full stack — Spark Thrift + Nessie + Iceberg"
+        Write-Host "  Targets (optional, default: all):" -ForegroundColor Yellow
+        Write-Host "    all       Both DuckDB and Spark"
+        Write-Host "    duckdb    DuckDB engine only"
+        Write-Host "    spark     Spark engine only"
         Write-Host ""
         Write-Host "  Commands:" -ForegroundColor Yellow
-        Write-Host "    build            Build containers for selected engine"
-        Write-Host "    up               Build and start the stack"
-        Write-Host "    down             Stop everything (both modes)"
+        Write-Host "    build            Build all containers"
+        Write-Host "    up               Start the full stack (both engines)"
+        Write-Host "    down             Stop everything"
         Write-Host "    clean            Stop and remove volumes"
-        Write-Host "    logs             Tail container logs"
+        Write-Host "    logs [target]    Tail logs (all, duckdb, or spark)"
         Write-Host "    status           Show container status"
-        Write-Host "    spark-sql        Open Spark SQL shell (spark mode only)"
-        Write-Host "    dbt-run          Run dbt models"
-        Write-Host "    dbt-test         Run dbt tests"
-        Write-Host "    dbt-debug        Check dbt connectivity"
-        Write-Host "    nessie-contents  Show Nessie catalog entries (spark mode)"
+        Write-Host "    spark-sql        Open Spark SQL shell"
+        Write-Host "    dbt-run [target] Run dbt models"
+        Write-Host "    dbt-test [target] Run dbt tests"
+        Write-Host "    dbt-debug [target] Check dbt connectivity"
+        Write-Host "    nessie-contents  Show Nessie catalog entries"
         Write-Host "    s3-list          List LocalStack S3 buckets"
-        Write-Host "    notebook         Launch Marimo explorer notebook (DuckDB mode)"
+        Write-Host "    notebook <target> Launch Marimo notebook (duckdb or spark)"
         Write-Host "    help             Show this help"
         Write-Host ""
         Write-Host "  Examples:" -ForegroundColor Yellow
-        Write-Host "    .\lakehouse.ps1 up                  # DuckDB mode (fast, lightweight)"
-        Write-Host "    .\lakehouse.ps1 up -Engine spark    # Full Spark stack"
-        Write-Host "    .\lakehouse.ps1 dbt-run             # Run models against DuckDB"
-        Write-Host "    .\lakehouse.ps1 dbt-run -Engine spark  # Run models against Spark"
-        Write-Host "    .\lakehouse.ps1 notebook             # Launch Marimo data explorer"
+        Write-Host "    .\lakehouse.ps1 up                  # Start everything"
+        Write-Host "    .\lakehouse.ps1 dbt-run             # Run dbt on BOTH engines"
+        Write-Host "    .\lakehouse.ps1 dbt-run duckdb      # Run dbt on DuckDB only"
+        Write-Host "    .\lakehouse.ps1 dbt-run spark       # Run dbt on Spark only"
+        Write-Host "    .\lakehouse.ps1 notebook duckdb     # DuckDB explorer (port 2718)"
+        Write-Host "    .\lakehouse.ps1 notebook spark      # Spark explorer (port 2719)"
+        Write-Host ""
+        Write-Host "  Ports:" -ForegroundColor Yellow
+        Write-Host "    8080  Airflow (DuckDB)"
+        Write-Host "    8090  Airflow (Spark)"
+        Write-Host "    8081  Spark UI"
+        Write-Host "    2718  Marimo notebook (DuckDB)"
+        Write-Host "    2719  Marimo notebook (Spark)"
+        Write-Host "    19120 Nessie API"
+        Write-Host "    4566  LocalStack"
         Write-Host ""
     }
 }

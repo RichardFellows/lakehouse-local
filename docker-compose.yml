@@ -15,7 +15,6 @@ services:
     image: ghcr.io/projectnessie/nessie:latest
     ports:
       - "19120:19120"
-    profiles: ["spark"]
 
   spark:
     build:
@@ -40,9 +39,8 @@ services:
       timeout: 5s
       retries: 30
       start_period: 30s
-    profiles: ["spark"]
 
-  # DuckDB mode: dbt runs in-process, no Spark needed
+  # DuckDB Airflow instance — dbt runs DuckDB in-process
   airflow-duckdb:
     build:
       context: ./airflow
@@ -66,9 +64,8 @@ services:
       - "8080:8080"
       - "2718:2718"
     command: airflow standalone
-    profiles: ["duckdb"]
 
-  # Spark mode: dbt connects to Spark Thrift Server
+  # Spark Airflow instance — dbt connects to Spark Thrift Server
   airflow-spark:
     build:
       context: ./airflow
@@ -88,10 +85,9 @@ services:
       - ./dbt_project:/opt/dbt
       - ./notebooks:/opt/notebooks
     ports:
-      - "8080:8080"
-      - "2718:2718"
+      - "8090:8080"
+      - "2719:2718"
     command: airflow standalone
-    profiles: ["spark"]
 
 volumes:
   localstack-data:
