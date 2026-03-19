@@ -22,6 +22,7 @@ RUN pip3 install --no-cache-dir \
     "astronomer-cosmos[openlineage]" \
     apache-airflow-providers-apache-spark \
     "marimo[sql]" \
+    duckdb \
     altair \
     numpy \
     pandas \

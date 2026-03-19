@@ -150,19 +150,9 @@ switch ($Command) {
     }
 
     "notebook" {
-        if ($Target -eq "all") {
-            Write-Host "Specify which notebook: .\lakehouse.ps1 notebook duckdb  OR  .\lakehouse.ps1 notebook spark" -ForegroundColor Yellow
-            return
-        }
-
-        if ($Target -eq "spark") {
-            Write-Host "Starting Spark notebook on http://localhost:2719 ..." -ForegroundColor Yellow
-            docker compose exec airflow-spark bash -c "cd /opt && LAKEHOUSE_ENGINE=spark SPARK_THRIFT_HOST=spark SPARK_THRIFT_PORT=10000 marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
-        }
-        else {
-            Write-Host "Starting DuckDB notebook on http://localhost:2718 ..." -ForegroundColor Yellow
-            docker compose exec airflow-duckdb bash -c "cd /opt && LAKEHOUSE_ENGINE=duckdb LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
-        }
+        Write-Host "Starting side-by-side notebook on http://localhost:2719 ..." -ForegroundColor Yellow
+        Write-Host "  Connects to both DuckDB and Spark simultaneously" -ForegroundColor DarkGray
+        docker compose exec airflow-spark bash -c "cd /opt && LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb SPARK_THRIFT_HOST=spark SPARK_THRIFT_PORT=10000 marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
     }
 
     "help" {
@@ -187,7 +177,7 @@ switch ($Command) {
         Write-Host "    dbt-debug [target] Check dbt connectivity"
         Write-Host "    nessie-contents  Show Nessie catalog entries"
         Write-Host "    s3-list          List LocalStack S3 buckets"
-        Write-Host "    notebook <target> Launch Marimo notebook (duckdb or spark)"
+        Write-Host "    notebook         Launch Marimo notebook (queries both engines)"
         Write-Host "    help             Show this help"
         Write-Host ""
         Write-Host "  Examples:" -ForegroundColor Yellow
@@ -195,8 +185,7 @@ switch ($Command) {
         Write-Host "    .\lakehouse.ps1 dbt-run             # Run dbt on BOTH engines"
         Write-Host "    .\lakehouse.ps1 dbt-run duckdb      # Run dbt on DuckDB only"
         Write-Host "    .\lakehouse.ps1 dbt-run spark       # Run dbt on Spark only"
-        Write-Host "    .\lakehouse.ps1 notebook duckdb     # DuckDB explorer (port 2718)"
-        Write-Host "    .\lakehouse.ps1 notebook spark      # Spark explorer (port 2719)"
+        Write-Host "    .\lakehouse.ps1 notebook             # Side-by-side explorer (port 2719)"
         Write-Host ""
         Write-Host "  Ports:" -ForegroundColor Yellow
         Write-Host "    8080  Airflow (DuckDB)"
