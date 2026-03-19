@@ -16,7 +16,7 @@ param(
     [ValidateSet(
         "build", "up", "down", "clean", "logs", "status",
         "spark-sql", "dbt-run", "dbt-test", "dbt-debug",
-        "nessie-contents", "s3-list", "help"
+        "nessie-contents", "s3-list", "notebook", "help"
     )]
     [string]$Command = "help",
 
@@ -127,6 +127,16 @@ switch ($Command) {
         docker compose exec localstack awslocal s3 ls
     }
 
+    "notebook" {
+        if ($Engine -ne "duckdb") {
+            Write-Host "Marimo notebook requires DuckDB mode (default)" -ForegroundColor Red
+            return
+        }
+        Write-Host "Starting Marimo notebook..." -ForegroundColor Yellow
+        Write-Host "  Open http://localhost:2718 in your browser" -ForegroundColor Green
+        docker compose exec $airflowService bash -c "cd /opt && LAKEHOUSE_DB=/opt/dbt/lakehouse.duckdb marimo run notebooks/explore.py --host 0.0.0.0 --port 2718"
+    }
+
     "help" {
         Write-Banner
         Write-Host "  Usage: .\lakehouse.ps1 <command> [-Engine duckdb|spark]" -ForegroundColor White
@@ -148,6 +158,7 @@ switch ($Command) {
         Write-Host "    dbt-debug        Check dbt connectivity"
         Write-Host "    nessie-contents  Show Nessie catalog entries (spark mode)"
         Write-Host "    s3-list          List LocalStack S3 buckets"
+        Write-Host "    notebook         Launch Marimo explorer notebook (DuckDB mode)"
         Write-Host "    help             Show this help"
         Write-Host ""
         Write-Host "  Examples:" -ForegroundColor Yellow
@@ -155,6 +166,7 @@ switch ($Command) {
         Write-Host "    .\lakehouse.ps1 up -Engine spark    # Full Spark stack"
         Write-Host "    .\lakehouse.ps1 dbt-run             # Run models against DuckDB"
         Write-Host "    .\lakehouse.ps1 dbt-run -Engine spark  # Run models against Spark"
+        Write-Host "    .\lakehouse.ps1 notebook             # Launch Marimo data explorer"
         Write-Host ""
     }
 }

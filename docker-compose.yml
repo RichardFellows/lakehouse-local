@@ -57,11 +57,14 @@ services:
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
       DBT_PROFILES_DIR: /opt/dbt
       DBT_TARGET: duckdb
+      LAKEHOUSE_DB: /opt/dbt/lakehouse.duckdb
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
+      - ./notebooks:/opt/notebooks
     ports:
       - "8080:8080"
+      - "2718:2718"
     command: airflow standalone
     profiles: ["duckdb"]
 

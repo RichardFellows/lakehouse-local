@@ -25,7 +25,9 @@ RUN pip3 install \
 # Install dbt + Cosmos separately (avoids constraint conflicts)
 RUN pip3 install \
     dbt-duckdb \
-    astronomer-cosmos
+    astronomer-cosmos \
+    marimo \
+    altair
 
 RUN mkdir -p ${AIRFLOW_HOME}
 WORKDIR ${AIRFLOW_HOME}
