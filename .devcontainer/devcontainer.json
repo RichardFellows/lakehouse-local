@@ -1,0 +1,42 @@
+{
+  "name": "Lakehouse Local",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "airflow",
+  "workspaceFolder": "/opt/dbt",
+
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": false,
+      "installOhMyZsh": false,
+      "username": "root",
+      "upgradePackages": false
+    }
+  },
+
+  "forwardPorts": [
+    8082,
+    2718,
+    8081,
+    19120
+  ],
+  "portsAttributes": {
+    "8082": { "label": "Airflow UI", "onAutoForward": "openBrowser" },
+    "2718": { "label": "Marimo Notebook", "onAutoForward": "notify" },
+    "8081": { "label": "Spark UI", "onAutoForward": "silent" },
+    "19120": { "label": "Nessie API", "onAutoForward": "silent" }
+  },
+
+  "postStartCommand": "echo '✅ Stack is running. Airflow UI: port 8082 | Marimo Notebook: port 2718'",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "innoverio.vscode-dbt-power-user",
+        "ms-python.python"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}

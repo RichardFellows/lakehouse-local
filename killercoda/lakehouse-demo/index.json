@@ -1,0 +1,50 @@
+{
+  "title": "Local Lakehouse: Airflow + dbt + Iceberg + Nessie",
+  "description": "Build a local data lakehouse with Airflow orchestration, dbt transforms, Iceberg tables, and Nessie catalog — all on Docker Compose.",
+  "difficulty": "Intermediate",
+  "time": "25 minutes",
+  "details": {
+    "intro": {
+      "text": "intro.md"
+    },
+    "steps": [
+      {
+        "title": "Clone and explore the project",
+        "text": "step1/text.md",
+        "verify": "step1/verify.sh"
+      },
+      {
+        "title": "Start the stack (DuckDB mode)",
+        "text": "step2/text.md",
+        "verify": "step2/verify.sh"
+      },
+      {
+        "title": "Explore the dbt project",
+        "text": "step3/text.md"
+      },
+      {
+        "title": "Run the dbt pipeline via Airflow",
+        "text": "step4/text.md",
+        "verify": "step4/verify.sh"
+      },
+      {
+        "title": "Query results with DuckDB",
+        "text": "step5/text.md"
+      },
+      {
+        "title": "Add the Spark engine and compare",
+        "text": "step6/text.md",
+        "verify": "step6/verify.sh"
+      }
+    ],
+    "finish": {
+      "text": "finish/text.md"
+    }
+  },
+  "backend": {
+    "imageid": "ubuntu"
+  },
+  "interface": {
+    "layout": "tabs"
+  }
+}

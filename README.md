@@ -1,6 +1,10 @@
 # lakehouse-local
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/RichardFellows/lakehouse-local?quickstart=1)
+
 A local development stack for testing **Airflow → dbt** pipelines with **Iceberg** tables and **Nessie** catalog, using **LocalStack** for S3-compatible storage.
+
+> **☁️ Try it online** — click the badge above to launch a full working environment in GitHub Codespaces (free tier, no local setup needed). Once it's up: Airflow UI on port 8082, Marimo notebook on port 2718.
 
 Supports two engine modes:
 - **DuckDB** (default) — lightweight, no JVM, starts in seconds
