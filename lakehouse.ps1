@@ -51,35 +51,58 @@ function Run-Dbt {
 
 switch ($Command) {
     "build" {
-        Write-Host "Building all containers..." -ForegroundColor Yellow
-        docker compose build
+        $profileArgs = switch ($Target) {
+            "spark"  { @("--profile", "spark") }
+            "duckdb" { @() }
+            default  { @("--profile", "both") }
+        }
+        Write-Host "Building containers (target: $Target)..." -ForegroundColor Yellow
+        docker compose @profileArgs build
     }
 
     "up" {
-        Write-Host "Building and starting stack..." -ForegroundColor Yellow
-        docker compose build
-        docker compose up -d
+        $profileArgs = switch ($Target) {
+            "spark"  { @("--profile", "spark") }
+            "duckdb" { @() }
+            default  { @("--profile", "both") }
+        }
+        Write-Host "Building and starting stack (target: $Target)..." -ForegroundColor Yellow
+        docker compose @profileArgs build
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Build failed — aborting." -ForegroundColor Red
+            exit 1
+        }
+        docker compose @profileArgs up -d
 
         Write-Banner
-        Write-Host "  Airflow UI:  http://localhost:8080" -ForegroundColor Green
-        Write-Host "  Spark UI:    http://localhost:8081" -ForegroundColor Green
-        Write-Host "  Notebook:    http://localhost:2718" -ForegroundColor Green
-        Write-Host "  Nessie API:  http://localhost:19120" -ForegroundColor Green
+        Write-Host "  Airflow UI:  http://localhost:8082" -ForegroundColor Green
         Write-Host "  LocalStack:  http://localhost:4566" -ForegroundColor Green
+        if ($Target -eq "spark" -or $Target -eq "all") {
+            Write-Host "  Spark UI:    http://localhost:8081" -ForegroundColor Green
+            Write-Host "  Nessie API:  http://localhost:19120" -ForegroundColor Green
+        }
+        if ($Target -eq "all") {
+            Write-Host "  Notebook:    http://localhost:2718" -ForegroundColor Green
+        }
         Write-Host ""
-        Write-Host "  Two DAGs in Airflow: lakehouse_duckdb + lakehouse_spark" -ForegroundColor DarkYellow
-        Write-Host "  Wait ~60s for Spark, then trigger both DAGs to compare." -ForegroundColor DarkYellow
+        if ($Target -eq "spark" -or $Target -eq "all") {
+            Write-Host "  Wait ~60s for Spark Thrift Server before triggering the Spark DAG." -ForegroundColor DarkYellow
+        }
+        if ($Target -eq "all") {
+            Write-Host "  Two DAGs in Airflow: lakehouse_duckdb + lakehouse_spark" -ForegroundColor DarkYellow
+            Write-Host "  Side-by-side notebook: http://localhost:2718" -ForegroundColor DarkYellow
+        }
         Write-Host ""
     }
 
     "down" {
         Write-Host "Stopping stack..." -ForegroundColor Yellow
-        docker compose down
+        docker compose --profile spark --profile both down
     }
 
     "clean" {
         Write-Host "Stopping stack and removing volumes..." -ForegroundColor Red
-        docker compose down -v
+        docker compose --profile spark --profile both down -v
     }
 
     "logs" {
@@ -168,18 +191,21 @@ switch ($Command) {
         Write-Host "    help               Show this help"
         Write-Host ""
         Write-Host "  Quick start:" -ForegroundColor Yellow
-        Write-Host "    .\lakehouse.ps1 up"
-        Write-Host "    .\lakehouse.ps1 dbt-run        # Runs on BOTH engines"
-        Write-Host "    # Open http://localhost:2718    # Side-by-side notebook"
-        Write-Host "    # Open http://localhost:8080    # Airflow (2 DAGs)"
+        Write-Host "    .\lakehouse.ps1 up                     # Both engines + notebook (default)"
+        Write-Host "    .\lakehouse.ps1 up duckdb              # DuckDB only (fast, no JVM)"
+        Write-Host "    .\lakehouse.ps1 up spark               # Spark + Nessie only"
+        Write-Host "    .\lakehouse.ps1 dbt-run                # Runs on both engines"
+        Write-Host "    .\lakehouse.ps1 dbt-run duckdb         # DuckDB engine only"
+        Write-Host "    # Open http://localhost:8082    # Airflow"
+        Write-Host "    # Open http://localhost:2718    # Side-by-side notebook (both mode)"
         Write-Host ""
         Write-Host "  Ports:" -ForegroundColor Yellow
-        Write-Host "    8080   Airflow (both DAGs)"
-        Write-Host "    8081   Spark UI"
-        Write-Host "    2718   Marimo notebook"
-        Write-Host "    19120  Nessie API"
+        Write-Host "    8082   Airflow"
+        Write-Host "    8081   Spark UI          (spark/both only)"
+        Write-Host "    2718   Marimo notebook   (both only)"
+        Write-Host "    19120  Nessie API        (spark/both only)"
         Write-Host "    4566   LocalStack"
-        Write-Host "    10000  Spark Thrift"
+        Write-Host "    10000  Spark Thrift      (spark/both only)"
         Write-Host ""
     }
 }

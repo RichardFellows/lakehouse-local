@@ -62,17 +62,20 @@ All containers use **RHEL 8 (UBI)** base images. Spark JARs are resolved via **M
 ## Quick Start
 
 ```powershell
-# DuckDB mode (default — fast, lightweight)
+# Both engines + side-by-side notebook (default)
 .\lakehouse.ps1 up
 
-# Or full Spark stack
-.\lakehouse.ps1 up -Engine spark
+# DuckDB only (fast, no JVM)
+.\lakehouse.ps1 up duckdb
+
+# Spark + Nessie only
+.\lakehouse.ps1 up spark
 ```
 
 Then:
-1. Open Airflow UI at http://localhost:8080
-2. Find the `lakehouse_dbt_spark` DAG
-3. Trigger it manually (play button)
+1. Open Airflow UI at http://localhost:8082
+2. Trigger a DAG (`lakehouse_duckdb`, `lakehouse_spark`, or both)
+3. Open the notebook at http://localhost:2718 (both mode only)
 
 ```powershell
 # Run dbt directly
@@ -80,11 +83,11 @@ Then:
 .\lakehouse.ps1 dbt-test
 .\lakehouse.ps1 dbt-debug
 
-# Interactive Spark SQL (spark mode only)
-.\lakehouse.ps1 spark-sql -Engine spark
+# Interactive Spark SQL (spark/both mode only)
+.\lakehouse.ps1 spark-sql
 
-# Check Nessie catalog (spark mode only)
-.\lakehouse.ps1 nessie-contents -Engine spark
+# Check Nessie catalog (spark/both mode only)
+.\lakehouse.ps1 nessie-contents
 
 # Check S3 buckets
 .\lakehouse.ps1 s3-list
@@ -121,11 +124,11 @@ target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
 
 | Service | Image | Port | Profile |
 |---------|-------|------|---------|
-| LocalStack | `localstack/localstack` | 4566 | both |
-| Airflow (DuckDB) | Custom (UBI8 + dbt-duckdb) | 8080 | `duckdb` |
-| Airflow (Spark) | Custom (UBI8 + dbt-spark) | 8080 | `spark` |
-| Spark | Custom (UBI8 + Spark 3.5) | 7077, 8081, 10000 | `spark` |
-| Nessie | `ghcr.io/projectnessie/nessie` | 19120 | `spark` |
+| LocalStack | `localstack/localstack` | 4566 | always |
+| Airflow | Custom (UBI8 + dbt-duckdb + dbt-spark) | 8082 | always |
+| Spark | Custom (UBI8 + Spark 3.5) | 7077, 8081, 10000 | `spark`, `both` |
+| Nessie | `ghcr.io/projectnessie/nessie` | 19120 | `spark`, `both` |
+| Notebook | Custom (Marimo) | 2718 | `both` |
 
 ## Stack Details
 
@@ -173,7 +176,7 @@ S3-compatible storage. Buckets (`warehouse`, `raw-data`) auto-created via init s
 
 ## Nessie Branching (Spark mode)
 
-Connect via `.\lakehouse.ps1 spark-sql -Engine spark` and try:
+Connect via `.\lakehouse.ps1 spark-sql` and try:
 
 ```sql
 CREATE BRANCH dev IN nessie;
@@ -190,7 +193,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
 **Spark Thrift not starting:**
-- Check logs: `docker compose --profile spark logs spark`
+- Check logs: `docker compose --profile spark logs spark` (or `.\lakehouse.ps1 logs spark`)
 - Maven download failures = network issues during build
 
 **dbt can't connect:**

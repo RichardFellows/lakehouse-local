@@ -13,6 +13,7 @@ services:
 
   nessie:
     image: ghcr.io/projectnessie/nessie:0.107.4
+    profiles: [spark, both]
     ports:
       - "19120:19120"
     environment:
@@ -30,6 +31,7 @@ services:
     build:
       context: ./spark
       dockerfile: Dockerfile
+    profiles: [spark, both]
     depends_on:
       localstack:
         condition: service_started
@@ -59,8 +61,6 @@ services:
     depends_on:
       localstack:
         condition: service_started
-      spark:
-        condition: service_healthy
     environment:
       AIRFLOW__CORE__EXECUTOR: SequentialExecutor
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
@@ -80,6 +80,7 @@ services:
     build:
       context: ./notebook
       dockerfile: Dockerfile
+    profiles: [both]
     depends_on:
       localstack:
         condition: service_started
