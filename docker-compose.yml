@@ -14,6 +14,9 @@ services:
   nessie:
     image: ghcr.io/projectnessie/nessie:0.107.4
     profiles: [spark, both]
+    depends_on:
+      localstack:
+        condition: service_started
     ports:
       - "19120:19120"
     environment:
@@ -67,6 +70,7 @@ services:
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
       DBT_PROFILES_DIR: /opt/dbt
+      DBT_TARGET: duckdb  # default; overridden inline per DAG (DBT_TARGET=spark dbt ...)
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
@@ -84,6 +88,8 @@ services:
     depends_on:
       localstack:
         condition: service_started
+      spark:
+        condition: service_healthy
     environment:
       LAKEHOUSE_DB: /opt/dbt/lakehouse.duckdb
       SPARK_THRIFT_HOST: spark
