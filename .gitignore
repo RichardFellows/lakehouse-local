@@ -1,7 +1,11 @@
+# Claude Code
+.claude/
+
 # dbt
 dbt_project/target/
 dbt_project/dbt_packages/
 dbt_project/logs/
+dbt_project/lakehouse.duckdb
 
 # Airflow
 airflow/logs/
@@ -14,6 +18,9 @@ standalone_admin_password.txt
 # Python
 __pycache__/
 *.pyc
+
+# Marimo
+notebooks/__marimo__/
 
 # OS
 .DS_Store
