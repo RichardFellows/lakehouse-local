@@ -42,10 +42,16 @@ function Run-Dbt {
         else { Write-Host "  [DuckDB] FAILED" -ForegroundColor Red }
     }
     if ($Target -eq "all" -or $Target -eq "spark") {
-        Write-Host "  [Spark] dbt $DbtCmd" -ForegroundColor DarkGray
-        docker compose exec airflow bash -c "cd /opt/dbt && DBT_TARGET=spark dbt $DbtCmd --profiles-dir ."
-        if ($LASTEXITCODE -eq 0) { Write-Host "  [Spark] OK" -ForegroundColor Green }
-        else { Write-Host "  [Spark] FAILED" -ForegroundColor Red }
+        $sparkId = docker compose ps spark --status running -q 2>$null
+        $sparkHealth = if ($sparkId) { docker inspect --format "{{.State.Health.Status}}" $sparkId 2>$null } else { "" }
+        if ($sparkHealth -ne "healthy") {
+            Write-Host "  [Spark] Skipping — Spark Thrift Server not healthy. Start with: .\lakehouse.ps1 up spark" -ForegroundColor DarkYellow
+        } else {
+            Write-Host "  [Spark] dbt $DbtCmd" -ForegroundColor DarkGray
+            docker compose exec airflow bash -c "cd /opt/dbt && DBT_TARGET=spark dbt $DbtCmd --profiles-dir ."
+            if ($LASTEXITCODE -eq 0) { Write-Host "  [Spark] OK" -ForegroundColor Green }
+            else { Write-Host "  [Spark] FAILED" -ForegroundColor Red }
+        }
     }
 }
 
@@ -118,6 +124,11 @@ switch ($Command) {
     }
 
     "spark-sql" {
+        $sparkId = docker compose ps spark --status running -q 2>$null
+        if (-not $sparkId) {
+            Write-Host "  Spark is not running. Start with: .\lakehouse.ps1 up spark" -ForegroundColor Red
+            break
+        }
         Write-Host "Opening Spark SQL shell..." -ForegroundColor Yellow
         docker compose exec spark spark-sql
     }
@@ -143,6 +154,11 @@ switch ($Command) {
     }
 
     "nessie-contents" {
+        $nessieId = docker compose ps nessie --status running -q 2>$null
+        if (-not $nessieId) {
+            Write-Host "  Nessie is not running. Start with: .\lakehouse.ps1 up spark" -ForegroundColor Red
+            break
+        }
         Write-Host "Nessie catalog contents:" -ForegroundColor Yellow
         try {
             $response = Invoke-RestMethod -Uri "http://localhost:19120/api/v2/trees/main/entries"
