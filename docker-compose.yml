@@ -1,6 +1,6 @@
 services:
   localstack:
-    image: localstack/localstack:latest
+    image: localstack/localstack:4.3.0
     environment:
       SERVICES: s3
       DEFAULT_REGION: eu-west-2
@@ -57,6 +57,8 @@ services:
 
   # Single Airflow instance with both dbt-duckdb and dbt-spark adapters
   # Two DAGs: one targets DuckDB, one targets Spark
+  # Dev-only: standalone mode runs webserver + scheduler in one process with no auth.
+  # SequentialExecutor + SQLite means DAGs queue serially — trigger one at a time.
   airflow:
     build:
       context: ./airflow
@@ -80,6 +82,7 @@ services:
     command: airflow standalone
 
   # Marimo notebook — queries both DuckDB and Spark side by side
+  # Note: ./notebook/ contains the Dockerfile; ./notebooks/ contains the Python files (volume-mounted)
   notebook:
     build:
       context: ./notebook
