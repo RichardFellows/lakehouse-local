@@ -124,6 +124,10 @@ switch ($Command) {
     }
 
     "spark-sql" {
+        if ($Target -eq "duckdb") {
+            Write-Host "  spark-sql requires the Spark engine — cannot use target 'duckdb'" -ForegroundColor Red
+            break
+        }
         $sparkId = docker compose ps spark --status running -q 2>$null
         if (-not $sparkId) {
             Write-Host "  Spark is not running. Start with: .\lakehouse.ps1 up spark" -ForegroundColor Red
@@ -154,6 +158,10 @@ switch ($Command) {
     }
 
     "nessie-contents" {
+        if ($Target -eq "duckdb") {
+            Write-Host "  nessie-contents requires the Spark engine — cannot use target 'duckdb'" -ForegroundColor Red
+            break
+        }
         $nessieId = docker compose ps nessie --status running -q 2>$null
         if (-not $nessieId) {
             Write-Host "  Nessie is not running. Start with: .\lakehouse.ps1 up spark" -ForegroundColor Red

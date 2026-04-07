@@ -75,7 +75,8 @@ All containers use **RHEL 8 (UBI)** base images. Spark JARs are resolved via **M
 Then:
 1. Open Airflow UI at http://localhost:8082
 2. Trigger a DAG (`lakehouse_duckdb`, `lakehouse_spark`, or both)
-3. Open the notebook at http://localhost:2718 (both mode only)
+3. Drop CSV files into `/opt/feeds/incoming/` to trigger the `file_ingest` DAG (spark mode — loads into Iceberg via Spark)
+4. Open the notebook at http://localhost:2718 (both mode only)
 
 ```powershell
 # Run dbt directly
@@ -120,6 +121,14 @@ The **same dbt models** run on both engines — the `profiles.yml` uses an envir
 target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
 ```
 
+## Airflow DAGs
+
+| DAG | Engine | Schedule | Description |
+|-----|--------|----------|-------------|
+| `lakehouse_duckdb` | DuckDB | manual | Runs dbt models against DuckDB |
+| `lakehouse_spark` | Spark | manual | Runs dbt models against Spark/Iceberg |
+| `file_ingest` | Spark | every 5 min | Watches `/opt/feeds/incoming/` for CSV files, uploads to S3, loads into Iceberg tables via Spark SQL, then triggers a dbt run |
+
 ## Components
 
 | Service | Image | Port | Profile |
@@ -135,7 +144,7 @@ target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
 ### Spark Image (UBI8)
 
 - **Base:** `redhat/ubi8` with Java 17 + Python 3.11
-- **Spark:** 3.5.4 with Hadoop 3
+- **Spark:** 3.5.8 with Hadoop 3
 - **JARs:** Resolved via Maven at build time (see `spark/pom.xml`):
   - `iceberg-spark-runtime` — Iceberg table format
   - `iceberg-aws-bundle` — S3FileIO
