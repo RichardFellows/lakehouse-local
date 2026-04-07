@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM redhat/ubi8:latest
 
 # Java 17 + Python 3.11
@@ -24,12 +25,17 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk
 
 # Pull Iceberg + Nessie + AWS JARs via Maven
 COPY pom.xml /tmp/deps/pom.xml
-RUN cd /tmp/deps \
+RUN --mount=type=cache,target=/root/.m2 \
+    cd /tmp/deps \
     && mvn dependency:copy-dependencies -DoutputDirectory=${SPARK_HOME}/jars -q \
-    && rm -rf /tmp/deps ~/.m2
+    && rm -rf /tmp/deps
+
+# Install uv for fast Python package management
+RUN pip3 install uv
 
 # PySpark
-RUN pip3 install --no-cache-dir pyspark==${SPARK_VERSION}
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system pyspark==${SPARK_VERSION}
 
 COPY spark-defaults.conf ${SPARK_HOME}/conf/spark-defaults.conf
 COPY entrypoint.sh /entrypoint.sh

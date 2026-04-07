@@ -80,8 +80,22 @@ switch ($Command) {
         }
         docker compose @profileArgs up -d
 
+        # Wait for Airflow to generate the admin password (up to 60s)
+        Write-Host "Waiting for Airflow to initialise..." -ForegroundColor Yellow
+        $airflowPw = $null
+        for ($i = 0; $i -lt 60; $i++) {
+            $airflowPw = docker compose exec airflow cat /opt/airflow/standalone_admin_password.txt 2>$null
+            if ($LASTEXITCODE -eq 0 -and $airflowPw) { break }
+            Start-Sleep -Seconds 1
+        }
+
         Write-Banner
-        Write-Host "  Airflow UI:  http://localhost:8082" -ForegroundColor Green
+        if ($airflowPw) {
+            Write-Host "  Airflow UI:  http://localhost:8082  (admin / $($airflowPw.Trim()))" -ForegroundColor Green
+        } else {
+            Write-Host "  Airflow UI:  http://localhost:8082" -ForegroundColor Green
+            Write-Host "  Airflow pw:  docker compose exec airflow cat /opt/airflow/standalone_admin_password.txt" -ForegroundColor DarkYellow
+        }
         Write-Host "  LocalStack:  http://localhost:4566" -ForegroundColor Green
         if ($Target -eq "spark" -or $Target -eq "all") {
             Write-Host "  Spark UI:    http://localhost:8081" -ForegroundColor Green

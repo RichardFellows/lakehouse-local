@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.22.4"
 app = marimo.App(width="full")
 
 
@@ -9,26 +9,25 @@ def _():
     import marimo as mo
     import pandas as pd
     import os
+
     return mo, os, pd
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 🦆🧊 DuckDB + Iceberg Extension
+    mo.md("""
+    # 🦆🧊 DuckDB + Iceberg Extension
 
-        DuckDB reads Iceberg tables directly from S3 using `iceberg_scan()`.
-        **No JVM, no Spark** — DuckDB parses the Iceberg metadata JSON and reads
-        the underlying Parquet files itself.
+    DuckDB reads Iceberg tables directly from S3 using `iceberg_scan()`.
+    **No JVM, no Spark** — DuckDB parses the Iceberg metadata JSON and reads
+    the underlying Parquet files itself.
 
-        **Path:** `DuckDB → iceberg_scan() → S3 (metadata.json + Parquet files)`
+    **Path:** `DuckDB → iceberg_scan() → S3 (metadata.json + Parquet files)`
 
-        We use PyIceberg to resolve the metadata file location from the Nessie catalog,
-        then hand that path to DuckDB. This gives you full SQL on Iceberg tables
-        without any Java infrastructure.
-        """
-    )
+    We use PyIceberg to resolve the metadata file location from the Nessie catalog,
+    then hand that path to DuckDB. This gives you full SQL on Iceberg tables
+    without any Java infrastructure.
+    """)
     return
 
 
@@ -82,8 +81,8 @@ def _(mo, os):
     except Exception as e:
         duckdb_status = f"❌ DuckDB: `{e}`"
 
-    mo.md(f"{catalog_status}\n\n{duckdb_status}")
-    return catalog, duckdb_con
+    _output = mo.md(f"{catalog_status}\n\n{duckdb_status}")
+    return catalog, duckdb_con, _output
 
 
 @app.cell
@@ -131,7 +130,9 @@ def _(duckdb_con, pd, resolve_metadata):
 
 @app.cell
 def _(mo):
-    mo.md("## Metadata Resolution")
+    mo.md("""
+    ## Metadata Resolution
+    """)
     return
 
 
@@ -150,16 +151,20 @@ def _(catalog, mo, pd):
                     "format_version": table.metadata.format_version,
                     "snapshot_count": len(table.metadata.snapshots),
                 })
-        mo.vstack([
+        _output = mo.vstack([
             mo.md("PyIceberg resolves the metadata file path from Nessie, then DuckDB reads it directly from S3:"),
             mo.ui.table(pd.DataFrame(rows)),
         ])
-    return
+    else:
+        _output = mo.md("_Catalog not connected_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Customer Orders — via `iceberg_scan()`")
+    mo.md("""
+    ## Customer Orders — via `iceberg_scan()`
+    """)
     return
 
 
@@ -169,13 +174,14 @@ def _(iceberg_query, mo):
         "db.customer_orders",
         "SELECT * FROM {table} ORDER BY total_revenue DESC",
     )
-    mo.ui.table(data)
-    return (data,)
+    return (mo.ui.table(data),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Revenue by Tier — SQL Aggregation in DuckDB")
+    mo.md("""
+    ## Revenue by Tier — SQL Aggregation in DuckDB
+    """)
     return
 
 
@@ -195,8 +201,8 @@ def _(iceberg_query, mo):
         ORDER BY total_revenue DESC
         """,
     )
-    mo.ui.table(tier_data)
-    return (tier_data,)
+    _output = mo.ui.table(tier_data)
+    return tier_data, _output
 
 
 @app.cell
@@ -222,21 +228,19 @@ def _(mo, tier_data):
             )
             .properties(width=500, height=300, title="Revenue by Customer Tier (DuckDB+Iceberg)")
         )
-        mo.ui.altair_chart(chart)
+        _output = mo.ui.altair_chart(chart)
     except ImportError:
-        mo.md("_Install altair for charts_")
-    return
+        _output = mo.md("_Install altair for charts_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Iceberg Metadata — via DuckDB
+    mo.md("""
+    ## Iceberg Metadata — via DuckDB
 
-        DuckDB can also read Iceberg metadata files directly.
-        """
-    )
+    DuckDB can also read Iceberg metadata files directly.
+    """)
     return
 
 
@@ -248,13 +252,15 @@ def _(duckdb_con, mo, resolve_metadata):
             meta = duckdb_con.execute(
                 f"SELECT * FROM iceberg_metadata('{metadata_path}')"
             ).fetchdf()
-            mo.vstack([
+            _output = mo.vstack([
                 mo.md("### Iceberg Metadata (data files)"),
                 mo.ui.table(meta),
             ])
         except Exception as e:
-            mo.md(f"_Metadata query failed: {e}_")
-    return
+            _output = mo.md(f"_Metadata query failed: {e}_")
+    else:
+        _output = mo.md("_Not connected_")
+    return (_output,)
 
 
 @app.cell
@@ -265,24 +271,24 @@ def _(duckdb_con, mo, resolve_metadata):
             snaps = duckdb_con.execute(
                 f"SELECT * FROM iceberg_snapshots('{metadata_path2}')"
             ).fetchdf()
-            mo.vstack([
+            _output = mo.vstack([
                 mo.md("### Iceberg Snapshots"),
                 mo.ui.table(snaps),
             ])
         except Exception as e:
-            mo.md(f"_Snapshots query failed: {e}_")
-    return
+            _output = mo.md(f"_Snapshots query failed: {e}_")
+    else:
+        _output = mo.md("_Not connected_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Custom Query
+    mo.md("""
+    ## Custom Query
 
-        Write SQL against Iceberg tables. Use `{table}` as placeholder for the `iceberg_scan()`.
-        """
-    )
+    Write SQL against Iceberg tables. Use `{table}` as placeholder for the `iceberg_scan()`.
+    """)
     return
 
 
@@ -300,9 +306,11 @@ def _(mo):
 @app.cell
 def _(iceberg_query, mo, sql_input):
     if sql_input.value.strip():
-        result = iceberg_query("db.customer_orders", sql_input.value)
-        mo.ui.table(result)
-    return
+        _result = iceberg_query("db.customer_orders", sql_input.value)
+        _output = mo.ui.table(_result)
+    else:
+        _output = mo.md("")
+    return (_output,)
 
 
 if __name__ == "__main__":

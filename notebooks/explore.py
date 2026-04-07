@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.22.4"
 app = marimo.App(width="full")
 
 
@@ -9,29 +9,28 @@ def _():
     import marimo as mo
     import pandas as pd
     import os
+
     return mo, os, pd
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # Lakehouse Explorer — Three Engines, One Truth
+    mo.md("""
+    # Lakehouse Explorer — Three Engines, One Truth
 
-        The same dbt models queried from **three different engines** simultaneously.
-        Demonstrates that identical data can be accessed via different compute paths
-        — all reading from the same Iceberg tables in the Nessie catalog.
+    The same dbt models queried from **three different engines** simultaneously.
+    Demonstrates that identical data can be accessed via different compute paths
+    — all reading from the same Iceberg tables in the Nessie catalog.
 
-        | Engine | Path | JVM Required |
-        |--------|------|:---:|
-        | 🦆 **DuckDB** | DuckDB → local file | No |
-        | ⚡ **Spark** | PyHive → Thrift Server → Iceberg/Nessie → S3 | Yes |
-        | 🧊 **PyIceberg** | PyIceberg → Nessie REST → S3 (direct read) | No |
-        | 🦆🧊 **DuckDB+Iceberg** | DuckDB → Iceberg extension → S3 | No |
+    | Engine | Path | JVM Required |
+    |--------|------|:---:|
+    | 🦆 **DuckDB** | DuckDB → local file | No |
+    | ⚡ **Spark** | PyHive → Thrift Server → Iceberg/Nessie → S3 | Yes |
+    | 🧊 **PyIceberg** | PyIceberg → Nessie REST → S3 (direct read) | No |
+    | 🦆🧊 **DuckDB+Iceberg** | DuckDB → Iceberg extension → S3 | No |
 
-        **Prerequisites:** Run both DAGs in Airflow to populate the engines.
-        """
-    )
+    **Prerequisites:** Run both DAGs in Airflow to populate the engines.
+    """)
     return
 
 
@@ -117,18 +116,18 @@ def _(mo, os):
     except Exception as e:
         duckdb_ice_status = f"❌ DuckDB+Iceberg: `{e}`"
 
-    mo.md(
+    _output = mo.md(
         f"### Connection Status\n\n"
         f"{duckdb_status}\n\n"
         f"{spark_status}\n\n"
         f"{iceberg_status}\n\n"
         f"{duckdb_ice_status}"
     )
-    return duckdb_con, spark_con, iceberg_catalog, duckdb_ice_con, duckdb_status, spark_status, iceberg_status, duckdb_ice_status
+    return duckdb_con, duckdb_ice_con, iceberg_catalog, spark_con, _output
 
 
 @app.cell
-def _(duckdb_con, spark_con, iceberg_catalog, duckdb_ice_con, pd):
+def _(duckdb_con, duckdb_ice_con, iceberg_catalog, pd, spark_con):
     def query_duckdb(sql):
         if duckdb_con is None:
             return pd.DataFrame({"error": ["DuckDB not connected"]})
@@ -174,17 +173,19 @@ def _(duckdb_con, spark_con, iceberg_catalog, duckdb_ice_con, pd):
         except Exception as e:
             return pd.DataFrame({"error": [str(e)]})
 
-    return query_duckdb, query_spark, query_pyiceberg, query_duckdb_iceberg
+    return query_duckdb, query_pyiceberg, query_spark
 
 
 @app.cell
 def _(mo):
-    mo.md("## Customer Orders Mart — All Engines")
+    mo.md("""
+    ## Customer Orders Mart — All Engines
+    """)
     return
 
 
 @app.cell
-def _(mo, query_duckdb, query_spark, query_pyiceberg):
+def _(mo, query_duckdb, query_pyiceberg, query_spark):
     duck_mart = query_duckdb(
         "SELECT * FROM customer_orders ORDER BY total_revenue DESC"
     )
@@ -195,7 +196,7 @@ def _(mo, query_duckdb, query_spark, query_pyiceberg):
     if "error" not in iceberg_mart.columns and "total_revenue" in iceberg_mart.columns:
         iceberg_mart = iceberg_mart.sort_values("total_revenue", ascending=False)
 
-    mo.hstack(
+    _output = mo.hstack(
         [
             mo.vstack([
                 mo.md("### 🦆 DuckDB (local)"),
@@ -212,17 +213,19 @@ def _(mo, query_duckdb, query_spark, query_pyiceberg):
         ],
         widths="equal",
     )
-    return duck_mart, spark_mart, iceberg_mart
+    return duck_mart, iceberg_mart, spark_mart, _output
 
 
 @app.cell
 def _(mo):
-    mo.md("## Revenue by Customer Tier")
+    mo.md("""
+    ## Revenue by Customer Tier
+    """)
     return
 
 
 @app.cell
-def _(mo, query_duckdb, query_spark, query_pyiceberg, pd):
+def _(mo, query_duckdb, query_pyiceberg, query_spark):
     tier_sql = """
         SELECT
             customer_tier,
@@ -256,7 +259,7 @@ def _(mo, query_duckdb, query_spark, query_pyiceberg, pd):
     else:
         ice_tier = ice_raw
 
-    mo.hstack(
+    _output = mo.hstack(
         [
             mo.vstack([
                 mo.md("### 🦆 DuckDB"),
@@ -273,11 +276,11 @@ def _(mo, query_duckdb, query_spark, query_pyiceberg, pd):
         ],
         widths="equal",
     )
-    return duck_tier, spark_tier, ice_tier
+    return duck_tier, ice_tier, spark_tier, _output
 
 
 @app.cell
-def _(mo, duck_tier, spark_tier, ice_tier):
+def _(duck_tier, ice_tier, mo, spark_tier):
     try:
         import altair as alt
 
@@ -306,101 +309,94 @@ def _(mo, duck_tier, spark_tier, ice_tier):
             make_tier_chart(spark_tier, "⚡ Spark"),
             make_tier_chart(ice_tier, "🧊 PyIceberg"),
         )
-        mo.ui.altair_chart(combined)
+        _output = mo.ui.altair_chart(combined)
     except ImportError:
-        mo.md("_Install altair for charts_")
+        _output = mo.md("_Install altair for charts_")
     except Exception as e:
-        mo.md(f"_Chart error: {e}_")
-    return
+        _output = mo.md(f"_Chart error: {e}_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Data Comparison
+    mo.md("""
+    ## Data Comparison
 
-        Verify all engines produce identical results.
-        """
-    )
+    Verify all engines produce identical results.
+    """)
     return
 
 
 @app.cell
-def _(duck_mart, spark_mart, iceberg_mart, mo):
-    def compare_dataframes(df1, df2, name1, name2):
-        """Compare two DataFrames, return (match: bool, details: str)."""
-        if "error" in df1.columns or "error" in df2.columns:
-            return False, f"⚠️ One or both engines returned an error"
+def _(duck_mart, iceberg_mart, mo, spark_mart):
+    import numpy as _np
 
-        # Normalise columns
+    def _compare(df1, df2, name1, name2):
+        """Compare two DataFrames with numeric tolerance."""
+        if "error" in df1.columns or "error" in df2.columns:
+            return f"⚠️ One or both engines returned an error"
+
         d1 = df1.copy()
         d2 = df2.copy()
         d1.columns = [c.split(".")[-1] for c in d1.columns]
         d2.columns = [c.split(".")[-1] for c in d2.columns]
 
-        if "customer_id" in d1.columns and "customer_id" in d2.columns:
-            d1 = d1.sort_values("customer_id").reset_index(drop=True)
-            d2 = d2.sort_values("customer_id").reset_index(drop=True)
+        if "customer_id" not in d1.columns or "customer_id" not in d2.columns:
+            return f"⚠️ **{name1} ↔ {name2}**: cannot compare (different structure)"
 
-            mismatches = []
-            for col in d1.columns:
-                if col in d2.columns:
-                    try:
-                        if d1[col].astype(str).tolist() != d2[col].astype(str).tolist():
-                            mismatches.append(col)
-                    except Exception:
-                        pass
+        d1 = d1.sort_values("customer_id").reset_index(drop=True)
+        d2 = d2.sort_values("customer_id").reset_index(drop=True)
 
-            if not mismatches:
-                return True, f"✅ **{name1} ↔ {name2}**: identical"
-            else:
-                return False, f"⚠️ **{name1} ↔ {name2}**: differences in {', '.join(mismatches)}"
-        else:
-            return False, f"⚠️ **{name1} ↔ {name2}**: cannot compare (different structure)"
+        _diffs = []
+        for col in d1.columns:
+            if col not in d2.columns:
+                continue
+            try:
+                if _np.issubdtype(d1[col].dtype, _np.number) and _np.issubdtype(d2[col].dtype, _np.number):
+                    if not _np.allclose(d1[col].values, d2[col].values, rtol=1e-5, equal_nan=True):
+                        _diffs.append(col)
+                elif d1[col].astype(str).tolist() != d2[col].astype(str).tolist():
+                    _diffs.append(col)
+            except Exception:
+                pass
 
-    results = []
-    pairs = [
-        (duck_mart, spark_mart, "DuckDB", "Spark"),
-        (duck_mart, iceberg_mart, "DuckDB", "PyIceberg"),
-        (spark_mart, iceberg_mart, "Spark", "PyIceberg"),
+        if not _diffs:
+            return f"✅ **{name1} ↔ {name2}**: identical"
+        return f"⚠️ **{name1} ↔ {name2}**: differences in {', '.join(_diffs)}"
+
+    _results = [
+        _compare(duck_mart, spark_mart, "DuckDB", "Spark"),
+        _compare(duck_mart, iceberg_mart, "DuckDB", "PyIceberg"),
+        _compare(spark_mart, iceberg_mart, "Spark", "PyIceberg"),
     ]
-    for df1, df2, n1, n2 in pairs:
-        _, detail = compare_dataframes(df1, df2, n1, n2)
-        results.append(detail)
-
-    mo.md("\n\n".join(results))
-    return
+    return (mo.md("\n\n".join(_results)),)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## DuckDB + Iceberg Extension
+    mo.md("""
+    ## DuckDB + Iceberg Extension
 
-        Read Iceberg tables directly from S3 using DuckDB's `iceberg_scan()`.
-        This bypasses Spark entirely — DuckDB reads the Iceberg metadata and Parquet files from S3.
+    Read Iceberg tables directly from S3 using DuckDB's `iceberg_scan()`.
+    This bypasses Spark entirely — DuckDB reads the Iceberg metadata and Parquet files from S3.
 
-        > **Note:** This requires knowing the metadata file path. The Nessie catalog stores this,
-        > and we resolve it via PyIceberg below.
-        """
-    )
+    > **Note:** This requires knowing the metadata file path. The Nessie catalog stores this,
+    > and we resolve it via PyIceberg below.
+    """)
     return
 
 
 @app.cell
-def _(mo, iceberg_catalog, duckdb_ice_con, pd):
+def _(duckdb_ice_con, iceberg_catalog, mo):
     if iceberg_catalog is None:
-        mo.md("❌ PyIceberg not available — cannot resolve metadata path for DuckDB+Iceberg")
+        _output = mo.md("❌ PyIceberg not available — cannot resolve metadata path for DuckDB+Iceberg")
     elif duckdb_ice_con is None:
-        mo.md("❌ DuckDB+Iceberg not available")
+        _output = mo.md("❌ DuckDB+Iceberg not available")
     else:
         try:
             # Resolve the Iceberg metadata location via PyIceberg
             table = iceberg_catalog.load_table("db.customer_orders")
             metadata_location = table.metadata_location
-            mo.md(f"📍 Metadata location: `{metadata_location}`")
 
             # Convert s3a:// to s3:// for DuckDB
             metadata_path = metadata_location.replace("s3a://", "s3://")
@@ -409,25 +405,23 @@ def _(mo, iceberg_catalog, duckdb_ice_con, pd):
                 f"SELECT * FROM iceberg_scan('{metadata_path}') ORDER BY total_revenue DESC"
             ).fetchdf()
 
-            mo.vstack([
-                mo.md("### 🦆🧊 DuckDB + Iceberg Extension (direct S3 read)"),
+            _output = mo.vstack([
+                mo.md(f"### 🦆🧊 DuckDB + Iceberg Extension (direct S3 read)\n\n📍 Metadata: `{metadata_location}`"),
                 mo.ui.table(result),
             ])
         except Exception as e:
-            mo.md(f"❌ DuckDB+Iceberg query failed: `{e}`")
-    return
+            _output = mo.md(f"❌ DuckDB+Iceberg query failed: `{e}`")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Custom Query
+    mo.md("""
+    ## Custom Query
 
-        Write SQL and run it against DuckDB and Spark simultaneously.
-        *(PyIceberg uses scan API, not SQL — custom queries are engine-specific)*
-        """
-    )
+    Write SQL and run it against DuckDB and Spark simultaneously.
+    *(PyIceberg uses scan API, not SQL — custom queries are engine-specific)*
+    """)
     return
 
 
@@ -443,12 +437,12 @@ def _(mo):
 
 
 @app.cell
-def _(mo, query_duckdb, query_spark, query_input):
+def _(mo, query_duckdb, query_input, query_spark):
     if query_input.value.strip():
         duck_custom = query_duckdb(query_input.value)
         spark_custom = query_spark(query_input.value)
 
-        mo.hstack(
+        _output = mo.hstack(
             [
                 mo.vstack([
                     mo.md("### 🦆 DuckDB"),
@@ -461,7 +455,9 @@ def _(mo, query_duckdb, query_spark, query_input):
             ],
             widths="equal",
         )
-    return
+    else:
+        _output = mo.md("")
+    return (_output,)
 
 
 if __name__ == "__main__":

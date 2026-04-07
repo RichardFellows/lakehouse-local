@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.22.4"
 app = marimo.App(width="full")
 
 
@@ -9,24 +9,23 @@ def _():
     import marimo as mo
     import pandas as pd
     import os
+
     return mo, os, pd
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 🦆 DuckDB — Local File
+    mo.md("""
+    # 🦆 DuckDB — Local File
 
-        The simplest path: DuckDB reads directly from a local `.duckdb` file
-        created by `dbt-duckdb`. No network, no S3, no catalog — just a file.
+    The simplest path: DuckDB reads directly from a local `.duckdb` file
+    created by `dbt-duckdb`. No network, no S3, no catalog — just a file.
 
-        **Path:** `DuckDB → local file (lakehouse.duckdb)`
+    **Path:** `DuckDB → local file (lakehouse.duckdb)`
 
-        This is the lightweight dev mode. dbt-duckdb writes to a single file,
-        and DuckDB reads it in-process with zero overhead.
-        """
-    )
+    This is the lightweight dev mode. dbt-duckdb writes to a single file,
+    and DuckDB reads it in-process with zero overhead.
+    """)
     return
 
 
@@ -43,15 +42,15 @@ def _(mo, os):
         file_size = os.path.getsize(db_path) if os.path.exists(db_path) else 0
         size_str = f"{file_size / 1024:.1f} KB" if file_size < 1048576 else f"{file_size / 1048576:.1f} MB"
 
-        mo.md(
+        _output = mo.md(
             f"✅ DuckDB connected\n\n"
             f"- File: `{db_path}`\n"
             f"- Size: {size_str}\n"
             f"- Read-only: yes (avoids locks with Airflow DAG runs)"
         )
     except Exception as e:
-        mo.md(f"❌ Connection failed: `{e}`")
-    return (con,)
+        _output = mo.md(f"❌ Connection failed: `{e}`")
+    return con, _output
 
 
 @app.cell
@@ -69,7 +68,9 @@ def _(con, pd):
 
 @app.cell
 def _(mo):
-    mo.md("## Database Objects")
+    mo.md("""
+    ## Database Objects
+    """)
     return
 
 
@@ -81,13 +82,14 @@ def _(mo, query):
         WHERE table_schema NOT IN ('information_schema', 'pg_catalog')
         ORDER BY table_schema, table_name
     """)
-    mo.ui.table(tables)
-    return
+    return (mo.ui.table(tables),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Table Schema — `customer_orders`")
+    mo.md("""
+    ## Table Schema — `customer_orders`
+    """)
     return
 
 
@@ -99,26 +101,28 @@ def _(mo, query):
         WHERE table_name = 'customer_orders'
         ORDER BY ordinal_position
     """)
-    mo.ui.table(schema)
-    return
+    return (mo.ui.table(schema),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Customer Orders Data")
+    mo.md("""
+    ## Customer Orders Data
+    """)
     return
 
 
 @app.cell
 def _(mo, query):
     data = query("SELECT * FROM customer_orders ORDER BY total_revenue DESC")
-    mo.ui.table(data)
-    return
+    return (mo.ui.table(data),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Revenue by Tier")
+    mo.md("""
+    ## Revenue by Tier
+    """)
     return
 
 
@@ -135,8 +139,8 @@ def _(mo, query):
         GROUP BY customer_tier
         ORDER BY total_revenue DESC
     """)
-    mo.ui.table(tier_data)
-    return (tier_data,)
+    _output = mo.ui.table(tier_data)
+    return tier_data, _output
 
 
 @app.cell
@@ -162,27 +166,24 @@ def _(mo, tier_data):
             )
             .properties(width=500, height=300, title="Revenue by Customer Tier (DuckDB local)")
         )
-        mo.ui.altair_chart(chart)
+        _output = mo.ui.altair_chart(chart)
     except ImportError:
-        mo.md("_Install altair for charts_")
-    return
+        _output = mo.md("_Install altair for charts_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## DuckDB Internals
+    mo.md("""
+    ## DuckDB Internals
 
-        DuckDB stores data in a columnar format optimised for analytical queries.
-        """
-    )
+    DuckDB stores data in a columnar format optimised for analytical queries.
+    """)
     return
 
 
 @app.cell
 def _(mo, query):
-    # Database size and table stats
     storage = query("""
         SELECT
             table_name,
@@ -192,19 +193,16 @@ def _(mo, query):
         FROM duckdb_tables()
         WHERE schema_name = 'main'
     """)
-    mo.ui.table(storage)
-    return
+    return (mo.ui.table(storage),)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Custom SQL
+    mo.md("""
+    ## Custom SQL
 
-        Full DuckDB SQL — window functions, CTEs, regex, list comprehensions, etc.
-        """
-    )
+    Full DuckDB SQL — window functions, CTEs, regex, list comprehensions, etc.
+    """)
     return
 
 
@@ -222,9 +220,11 @@ def _(mo):
 @app.cell
 def _(mo, query, sql_input):
     if sql_input.value.strip():
-        result = query(sql_input.value)
-        mo.ui.table(result)
-    return
+        _result = query(sql_input.value)
+        _output = mo.ui.table(_result)
+    else:
+        _output = mo.md("")
+    return (_output,)
 
 
 if __name__ == "__main__":

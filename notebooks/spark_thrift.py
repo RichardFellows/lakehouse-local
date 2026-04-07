@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.11.0"
+__generated_with = "0.22.4"
 app = marimo.App(width="full")
 
 
@@ -9,24 +9,23 @@ def _():
     import marimo as mo
     import pandas as pd
     import os
+
     return mo, os, pd
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # ⚡ Spark Thrift Server — Iceberg via SQL
+    mo.md("""
+    # ⚡ Spark Thrift Server — Iceberg via SQL
 
-        Connects to Spark's HiveServer2 (Thrift) endpoint using PyHive.
-        Spark executes SQL against Iceberg tables stored in the Nessie catalog on S3.
+    Connects to Spark's HiveServer2 (Thrift) endpoint using PyHive.
+    Spark executes SQL against Iceberg tables stored in the Nessie catalog on S3.
 
-        **Path:** `PyHive → Thrift (port 10000) → Spark → Iceberg → Nessie → S3`
+    **Path:** `PyHive → Thrift (port 10000) → Spark → Iceberg → Nessie → S3`
 
-        This is the same interface that dbt-spark uses. Full SQL support including
-        DDL, DML, and Spark-specific functions.
-        """
-    )
+    This is the same interface that dbt-spark uses. Full SQL support including
+    DDL, DML, and Spark-specific functions.
+    """)
     return
 
 
@@ -40,14 +39,14 @@ def _(mo, os):
         port = int(os.environ.get("SPARK_THRIFT_PORT", "10000"))
         spark_con = hive.connect(host=host, port=port, auth="NOSASL")
         spark_con.cursor().execute("USE db")
-        mo.md(f"✅ Connected to Spark Thrift Server (`{host}:{port}`, schema: `db`)")
+        _output = mo.md(f"✅ Connected to Spark Thrift Server (`{host}:{port}`, schema: `db`)")
     except Exception as e:
-        mo.md(f"❌ Connection failed: `{e}`")
-    return (spark_con,)
+        _output = mo.md(f"❌ Connection failed: `{e}`")
+    return spark_con, _output
 
 
 @app.cell
-def _(spark_con, pd):
+def _(pd, spark_con):
     def query(sql):
         if spark_con is None:
             return pd.DataFrame({"error": ["Not connected"]})
@@ -65,80 +64,85 @@ def _(spark_con, pd):
 
 @app.cell
 def _(mo):
-    mo.md("## Available Tables")
+    mo.md("""
+    ## Available Tables
+    """)
     return
 
 
 @app.cell
 def _(mo, query):
     tables = query("SHOW TABLES")
-    mo.ui.table(tables)
-    return
+    return (mo.ui.table(tables),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Table Details — `customer_orders`")
+    mo.md("""
+    ## Table Details — `customer_orders`
+    """)
     return
 
 
 @app.cell
 def _(mo, query):
     schema = query("DESCRIBE TABLE customer_orders")
-    mo.ui.table(schema)
-    return
+    return (mo.ui.table(schema),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Iceberg Table Metadata")
+    mo.md("""
+    ## Iceberg Table Metadata
+    """)
     return
 
 
 @app.cell
 def _(mo, query):
-    # Iceberg-specific: show table properties, snapshots, history
     try:
         props = query("SHOW TBLPROPERTIES customer_orders")
-        mo.vstack([
+        _output = mo.vstack([
             mo.md("### Table Properties"),
             mo.ui.table(props),
         ])
     except Exception as e:
-        mo.md(f"_Could not read properties: {e}_")
-    return
+        _output = mo.md(f"_Could not read properties: {e}_")
+    return (_output,)
 
 
 @app.cell
 def _(mo, query):
     try:
         history = query("SELECT * FROM db.customer_orders.history")
-        mo.vstack([
+        _output = mo.vstack([
             mo.md("### Snapshot History"),
             mo.ui.table(history),
         ])
     except Exception:
-        # Iceberg history syntax varies by version
-        mo.md("_Snapshot history not available via this Spark version_")
-    return
+        _output = mo.md("_Snapshot history not available via this Spark version_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Customer Orders Data")
+    mo.md("""
+    ## Customer Orders Data
+    """)
     return
 
 
 @app.cell
 def _(mo, query):
     data = query("SELECT * FROM customer_orders ORDER BY total_revenue DESC")
-    mo.ui.table(data)
-    return
+    return (mo.ui.table(data),)
 
 
 @app.cell
 def _(mo):
-    mo.md("## Revenue by Tier")
+    mo.md("""
+    ## Revenue by Tier
+    """)
     return
 
 
@@ -155,8 +159,8 @@ def _(mo, query):
         GROUP BY customer_tier
         ORDER BY total_revenue DESC
     """)
-    mo.ui.table(tier_data)
-    return (tier_data,)
+    _output = mo.ui.table(tier_data)
+    return tier_data, _output
 
 
 @app.cell
@@ -182,25 +186,23 @@ def _(mo, tier_data):
             )
             .properties(width=500, height=300, title="Revenue by Customer Tier (Spark)")
         )
-        mo.ui.altair_chart(chart)
+        _output = mo.ui.altair_chart(chart)
     except ImportError:
-        mo.md("_Install altair for charts_")
-    return
+        _output = mo.md("_Install altair for charts_")
+    return (_output,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Custom SQL
+    mo.md("""
+    ## Custom SQL
 
-        Run any Spark SQL query — DDL, DML, Iceberg-specific operations.
-        Examples:
-        - `SELECT * FROM customer_orders WHERE customer_tier = 'high'`
-        - `DESCRIBE EXTENDED customer_orders`
-        - `SELECT snapshot_id, committed_at FROM db.customer_orders.snapshots`
-        """
-    )
+    Run any Spark SQL query — DDL, DML, Iceberg-specific operations.
+    Examples:
+    - `SELECT * FROM customer_orders WHERE customer_tier = 'high'`
+    - `DESCRIBE EXTENDED customer_orders`
+    - `SELECT snapshot_id, committed_at FROM db.customer_orders.snapshots`
+    """)
     return
 
 
@@ -218,9 +220,11 @@ def _(mo):
 @app.cell
 def _(mo, query, sql_input):
     if sql_input.value.strip():
-        result = query(sql_input.value)
-        mo.ui.table(result)
-    return
+        _result = query(sql_input.value)
+        _output = mo.ui.table(_result)
+    else:
+        _output = mo.md("")
+    return (_output,)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM redhat/ubi8:latest
 
 RUN dnf install -y \
@@ -5,14 +6,18 @@ RUN dnf install -y \
     && dnf clean all \
     && alternatives --set python3 /usr/bin/python3.11
 
+# Install uv for fast Python package management
+RUN pip3 install uv
+
 # pyhive[hive] pulls in C 'sasl' which is broken on Python 3.11+
 # Instead: install pyhive (base) + pure-sasl + thrift-sasl manually
-RUN pip3 install --no-cache-dir \
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install --system \
     pure-sasl \
     thrift \
-    && pip3 install --no-cache-dir --no-deps thrift-sasl \
-    && pip3 install --no-cache-dir --no-deps pyhive \
-    && pip3 install --no-cache-dir \
+    && uv pip install --system --no-deps thrift-sasl \
+    && uv pip install --system --no-deps pyhive \
+    && uv pip install --system \
     "marimo[sql]" \
     duckdb \
     altair \
