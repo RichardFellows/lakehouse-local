@@ -1,6 +1,6 @@
 services:
   localstack:
-    image: localstack/localstack:4.3.0
+    image: localstack/localstack:4.6.0
     environment:
       SERVICES: s3
       DEFAULT_REGION: eu-west-2
@@ -12,7 +12,7 @@ services:
       - localstack-data:/var/lib/localstack
 
   nessie:
-    image: ghcr.io/projectnessie/nessie:0.107.4
+    image: ghcr.io/projectnessie/nessie:0.104.1
     profiles: [spark, both]
     depends_on:
       localstack:

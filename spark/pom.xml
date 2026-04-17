@@ -8,10 +8,22 @@
 
   <properties>
     <iceberg.version>1.7.1</iceberg.version>
-    <nessie.version>0.99.0</nessie.version>
+    <!-- The Nessie Spark extensions version should match (or stay close to) the
+         Nessie server version running in docker-compose. If they drift apart
+         enough that the client and server disagree on the native REST API
+         version, calls like `LIST REFERENCES` / `CREATE BRANCH` / `USE REFERENCE`
+         fail with `NessieApiCompatibilityException: API version mismatch`.
+         Pinned here to match the `ghcr.io/projectnessie/nessie:0.104.1` server
+         image in docker-compose.yml. Maven Central coordinates:
+         org.projectnessie.nessie-integrations:nessie-spark-extensions-3.5_2.12 -->
+    <nessie.version>0.104.1</nessie.version>
     <spark.compat>3.5</spark.compat>
     <scala.compat>2.12</scala.compat>
-    <hadoop.version>3.3.6</hadoop.version>
+    <!-- Must match the Hadoop client shipped inside the Spark tarball (Spark
+         3.5.8 bundles hadoop-client-api/runtime 3.3.4). Using a newer
+         `hadoop-aws` here leads to runtime NoClassDefFoundError on classes
+         that were added to hadoop-common in 3.3.5+ (e.g. PrefetchingStatistics). -->
+    <hadoop.version>3.3.4</hadoop.version>
     <aws.sdk.version>2.29.45</aws.sdk.version>
   </properties>
 
@@ -37,24 +49,18 @@
       <version>${nessie.version}</version>
     </dependency>
 
-    <!-- Hadoop AWS (s3a filesystem implementation) -->
+    <!-- Hadoop AWS (s3a filesystem implementation)
+         NOTE: hadoop-aws 3.3.x requires the AWS SDK v1 `aws-java-sdk-bundle`
+         (`com.amazonaws.*`) at runtime. Iceberg uses AWS SDK v2 via
+         `iceberg-aws-bundle` (`software.amazon.awssdk.*`) — different package
+         namespaces, so the two bundles coexist without conflict. Do NOT
+         exclude `aws-java-sdk-bundle` here or any `s3a://` read (e.g. the
+         `file_ingest` DAG staging CSVs via Spark) will fail with
+         `NoClassDefFoundError: com/amazonaws/AmazonClientException`. -->
     <dependency>
       <groupId>org.apache.hadoop</groupId>
       <artifactId>hadoop-aws</artifactId>
       <version>${hadoop.version}</version>
-      <exclusions>
-        <exclusion>
-          <groupId>com.amazonaws</groupId>
-          <artifactId>aws-java-sdk-bundle</artifactId>
-        </exclusion>
-      </exclusions>
-    </dependency>
-
-    <!-- AWS SDK v2 bundle -->
-    <dependency>
-      <groupId>software.amazon.awssdk</groupId>
-      <artifactId>bundle</artifactId>
-      <version>${aws.sdk.version}</version>
     </dependency>
   </dependencies>
 </project>
