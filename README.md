@@ -109,7 +109,7 @@ Then:
 |---|---|---|
 | **Startup** | ~10s | ~60s |
 | **Memory** | 2-4GB | 8GB+ |
-| **Containers** | 2 (Airflow + LocalStack) | 4 (+Spark + Nessie) |
+| **Containers** | 3 (Airflow + Postgres + LocalStack) | 5 (+Spark + Nessie) |
 | **JVM required** | No | Yes |
 | **Build time** | Seconds | Minutes (Maven) |
 | **Production parity** | Different engine | Matches prod Spark |
@@ -134,10 +134,13 @@ target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
 | Service | Image | Port | Profile |
 |---------|-------|------|---------|
 | LocalStack | `localstack/localstack` | 4566 | always |
+| Postgres | `postgres:16.4` | — (internal) | always |
 | Airflow | Custom (UBI8 + dbt-duckdb + dbt-spark) | 8082 | always |
 | Spark | Custom (UBI8 + Spark 3.5) | 7077, 8081, 10000 | `spark`, `both` |
 | Nessie | `ghcr.io/projectnessie/nessie` | 19120 | `spark`, `both` |
 | Notebook | Custom (Marimo) | 2718 | `both` |
+
+> Airflow uses Postgres as its metadata DB (not SQLite) so the scheduler can run `LocalExecutor` and DAG tasks execute in parallel instead of queueing serially.
 
 ## Stack Details
 

@@ -28,6 +28,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     --constraint "${CONSTRAINT_URL}"
 
 # Step 2: Install dbt adapters + Cosmos (without constraints — they conflict)
+# Also install the Postgres driver that LocalExecutor + the Airflow metadata
+# DB need when AIRFLOW__DATABASE__SQL_ALCHEMY_CONN points at postgresql+psycopg2.
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install --system \
     dbt-duckdb \
@@ -37,6 +39,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     "apache-airflow-providers-common-io<1.7" \
     "apache-airflow-providers-common-sql<1.21" \
     "apache-airflow-providers-apache-spark<5" \
+    "apache-airflow-providers-postgres" \
+    psycopg2-binary \
     boto3
 
 # Step 3: Ensure Airflow wasn't upgraded by transitive deps

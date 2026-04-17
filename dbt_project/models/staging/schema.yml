@@ -2,16 +2,24 @@ version: 2
 
 models:
   - name: stg_customers
-    description: Staged customer data
+    description: >
+      Current-version customer rows from the SCD2 snapshot. One row per
+      customer_id; historical versions live in `snap_customers` /
+      `dim_customer_history`.
     columns:
       - name: customer_id
         description: Primary key
         tests:
           - unique
           - not_null
+      - name: email
+        tests:
+          - not_null
 
   - name: stg_orders
-    description: Staged order data
+    description: >
+      Current-version order rows from the SCD2 snapshot. Status reflects the
+      most recent status observed for the order.
     columns:
       - name: order_id
         description: Primary key
@@ -19,9 +27,14 @@ models:
           - unique
           - not_null
       - name: customer_id
-        description: Foreign key to customers
+        description: Foreign key to customers (current version)
         tests:
           - not_null
           - relationships:
               to: ref('stg_customers')
               field: customer_id
+      - name: status
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['completed', 'pending', 'cancelled']

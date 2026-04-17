@@ -8,6 +8,7 @@ model-paths: ["models"]
 seed-paths: ["seeds"]
 test-paths: ["tests"]
 analysis-paths: ["analyses"]
+snapshot-paths: ["snapshots"]
 
 clean-targets:
   - target
@@ -19,5 +20,33 @@ models:
     +file_format: iceberg
     staging:
       +materialized: view
+    intermediate:
+      +materialized: view
     marts:
       +materialized: table
+
+seeds:
+  lakehouse_local:
+    # customers_latest / orders_latest represent the "current day's snapshot"
+    # from the source system. They are overwritten by the daily_snapshot_ingest
+    # DAG at run time, so the file on disk after a DAG run reflects whichever
+    # date was last processed. The SCD2 history lives in dbt snapshots, not here.
+    customers_latest:
+      +column_types:
+        customer_id: int
+        created_at: date
+        updated_at: timestamp
+    orders_latest:
+      +column_types:
+        order_id: int
+        customer_id: int
+        order_date: date
+        amount: decimal(10,2)
+        updated_at: timestamp
+
+snapshots:
+  lakehouse_local:
+    +target_schema: snapshots
+    # dbt-spark requires an Iceberg/Delta/Hudi file format for snapshots
+    # (the default `parquet` is not mergeable). DuckDB ignores this config.
+    +file_format: iceberg

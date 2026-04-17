@@ -1,14 +1,21 @@
+{#
+    Customer-level rollup with tiering. Kept backwards-compatible with the
+    pre-SCD2 version of this mart (same column contract) so the 4-engine
+    parity notebook (explore.py) continues to work. Under the hood it now
+    sources from fact_orders + dim_customer_current so every number lines
+    up with the SCD2 history.
+#}
 {{ config(materialized='table') }}
 
 with customers as (
-    select * from {{ ref('stg_customers') }}
+    select * from {{ ref('dim_customer_current') }}
 ),
 
 orders as (
-    select * from {{ ref('stg_orders') }}
+    select * from {{ ref('fact_orders') }}
 ),
 
-customer_orders as (
+rollup as (
     select
         c.customer_id,
         c.first_name,
@@ -30,4 +37,4 @@ select
         when total_orders >= 2 then 'medium'
         else 'low'
     end as customer_tier
-from customer_orders
+from rollup
