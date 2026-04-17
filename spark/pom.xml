@@ -8,13 +8,15 @@
 
   <properties>
     <iceberg.version>1.7.1</iceberg.version>
-    <!-- The Nessie Spark extensions are only released for some server versions.
-         The latest Spark 3.5 / Scala 2.12 build on Maven Central is 0.106.0,
-         which is wire-compatible with the 0.107.x Nessie server image used by
-         docker-compose. Older extensions (e.g. 0.99.x) speak only the Nessie
-         native REST API v1 and fail against a v2 server with "API version
-         mismatch" when running `CREATE BRANCH`/`USE REFERENCE`. -->
-    <nessie.version>0.106.0</nessie.version>
+    <!-- The Nessie Spark extensions version should match (or stay close to) the
+         Nessie server version running in docker-compose. If they drift apart
+         enough that the client and server disagree on the native REST API
+         version, calls like `LIST REFERENCES` / `CREATE BRANCH` / `USE REFERENCE`
+         fail with `NessieApiCompatibilityException: API version mismatch`.
+         Pinned here to match the `ghcr.io/projectnessie/nessie:0.104.1` server
+         image in docker-compose.yml. Maven Central coordinates:
+         org.projectnessie.nessie-integrations:nessie-spark-extensions-3.5_2.12 -->
+    <nessie.version>0.104.1</nessie.version>
     <spark.compat>3.5</spark.compat>
     <scala.compat>2.12</scala.compat>
     <!-- Must match the Hadoop client shipped inside the Spark tarball (Spark
