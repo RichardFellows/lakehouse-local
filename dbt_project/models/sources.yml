@@ -1,0 +1,47 @@
+version: 2
+
+sources:
+  # `raw` schema contains full-table daily snapshots dumped by the source system
+  # and loaded by the `daily_snapshot_ingest` Airflow DAG.
+  #
+  # On the Spark target these are Iceberg tables under the Nessie catalog
+  # (`nessie.raw.customers_latest`). On the DuckDB target there is no `raw`
+  # schema wired through dbt; the snapshots read from the refreshed seed
+  # tables via `ref('customers_latest')` instead. The per-target selection
+  # happens inside `snapshots/snap_*.sql` so the rest of the project doesn't
+  # need to know about it.
+  - name: raw
+    schema: raw
+    description: >
+      Landing zone for daily full-table snapshots of source systems. Each DAG run
+      replaces the `_latest` table entirely with the chosen day's dump.
+    # Sources only exist on the Spark/Iceberg target — DuckDB reads the same
+    # daily snapshot via refreshed dbt seeds instead of a lakehouse `raw` schema.
+    config:
+      enabled: "{{ target.name == 'spark' }}"
+    tables:
+      - name: customers_latest
+        description: Full customer table as of the most recent ingest day.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 48, period: hour }
+        columns:
+          - name: customer_id
+            description: Primary key from the source system.
+            tests: [not_null, unique]
+          - name: updated_at
+            description: Source-system timestamp, bumped when a row changes.
+            tests: [not_null]
+
+      - name: orders_latest
+        description: Full orders table as of the most recent ingest day.
+        loaded_at_field: updated_at
+        freshness:
+          warn_after: { count: 48, period: hour }
+        columns:
+          - name: order_id
+            tests: [not_null, unique]
+          - name: customer_id
+            tests: [not_null]
+          - name: updated_at
+            tests: [not_null]

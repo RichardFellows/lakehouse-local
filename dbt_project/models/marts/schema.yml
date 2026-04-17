@@ -1,0 +1,63 @@
+version: 2
+
+models:
+  - name: dim_customer_current
+    description: Current-version customer dimension, one row per customer_id.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: email
+        tests: [not_null]
+
+  - name: dim_customer_history
+    description: >
+      Full SCD2 history. One row per (customer_id, version). `version=1` is
+      the earliest observed state; `is_current=true` for the latest.
+    columns:
+      - name: customer_id
+        tests: [not_null]
+      - name: valid_from
+        tests: [not_null]
+      - name: version
+        tests: [not_null]
+
+  - name: fact_orders
+    description: >
+      Orders joined to the customer attributes that were valid on each
+      order's order_date (point-in-time / as-of join against snap_customers).
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customer_current')
+              field: customer_id
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['completed', 'pending', 'cancelled']
+
+  - name: customer_ltv
+    description: RFM / LTV rollup per current customer.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: ltv_bucket
+        tests:
+          - accepted_values:
+              values: ['platinum', 'gold', 'silver', 'dormant']
+
+  - name: customer_orders
+    description: >
+      Legacy-compatible customer rollup — retained with the same column
+      contract as the pre-SCD2 version so the cross-engine notebook parity
+      test keeps asserting against the same shape.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: customer_tier
+        tests:
+          - accepted_values:
+              values: ['high', 'medium', 'low']

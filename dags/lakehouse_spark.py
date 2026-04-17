@@ -39,6 +39,14 @@ with DAG(
         bash_command=f"{DBT_CMD} seed --profiles-dir {DBT_DIR}",
     )
 
+    # SCD2 snapshot step — reads nessie.raw.customers_latest /
+    # nessie.raw.orders_latest (populated by the daily_snapshot_ingest DAG)
+    # and captures inserts / updates into nessie.snapshots.snap_*.
+    dbt_snapshot = BashOperator(
+        task_id="dbt_snapshot",
+        bash_command=f"{DBT_CMD} snapshot --profiles-dir {DBT_DIR}",
+    )
+
     dbt_run_staging = BashOperator(
         task_id="dbt_run_staging",
         bash_command=f"{DBT_CMD} run --select staging --profiles-dir {DBT_DIR}",
@@ -54,4 +62,11 @@ with DAG(
         bash_command=f"{DBT_CMD} test --profiles-dir {DBT_DIR}",
     )
 
-    dbt_debug >> dbt_seed >> dbt_run_staging >> dbt_run_marts >> dbt_test
+    (
+        dbt_debug
+        >> dbt_seed
+        >> dbt_snapshot
+        >> dbt_run_staging
+        >> dbt_run_marts
+        >> dbt_test
+    )

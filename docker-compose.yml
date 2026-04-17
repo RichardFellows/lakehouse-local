@@ -55,10 +55,28 @@ services:
       retries: 30
       start_period: 30s
 
+  # Postgres — Airflow metadata DB. Backing Airflow with Postgres (instead of
+  # the default SQLite) lets us run `LocalExecutor`, so DAG tasks can execute
+  # in parallel instead of queueing serially one-at-a-time.
+  postgres:
+    image: postgres:16.4
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow -d airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
   # Single Airflow instance with both dbt-duckdb and dbt-spark adapters
   # Two DAGs: one targets DuckDB, one targets Spark
   # Dev-only: standalone mode runs webserver + scheduler in one process with no auth.
-  # SequentialExecutor + SQLite means DAGs queue serially — trigger one at a time.
+  # Backed by Postgres + LocalExecutor — DAG tasks can run in parallel.
   airflow:
     build:
       context: ./airflow
@@ -66,9 +84,11 @@ services:
     depends_on:
       localstack:
         condition: service_started
+      postgres:
+        condition: service_healthy
     environment:
-      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
       DBT_PROFILES_DIR: /opt/dbt
@@ -108,3 +128,4 @@ services:
 
 volumes:
   localstack-data:
+  airflow-postgres-data:
