@@ -128,6 +128,7 @@ target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
 | `lakehouse_duckdb` | DuckDB | manual | Runs dbt models against DuckDB |
 | `lakehouse_spark` | Spark | manual | Runs dbt models against Spark/Iceberg |
 | `file_ingest` | Spark | every 5 min | Watches `/opt/feeds/incoming/` for CSV files, uploads to S3, loads into Iceberg tables via Spark SQL, then triggers a dbt run |
+| `daily_snapshot_ingest` | DuckDB + Spark | manual (per day) | Picks one day's snapshot CSV from `feeds/daily_snapshots/YYYY-MM-DD/`, refreshes the raw landing tables in both engines, then runs `dbt snapshot` → `dbt run` → `dbt test` to build SCD2 history + marts. See [docs/SCD2_DEMO.md](docs/SCD2_DEMO.md) for an end-to-end walkthrough with screenshots. |
 
 ## Components
 
