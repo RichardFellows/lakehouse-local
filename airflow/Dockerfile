@@ -41,7 +41,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     "apache-airflow-providers-apache-spark<5" \
     "apache-airflow-providers-postgres" \
     psycopg2-binary \
-    boto3
+    boto3 \
+    openpyxl \
+    pandas \
+    requests
 
 # Step 3: Ensure Airflow wasn't upgraded by transitive deps
 RUN --mount=type=cache,target=/root/.cache/uv \

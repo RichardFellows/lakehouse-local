@@ -91,15 +91,27 @@ services:
       AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
       AIRFLOW__CORE__LOAD_EXAMPLES: "false"
       AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth
       DBT_PROFILES_DIR: /opt/dbt
-      DBT_TARGET: duckdb  # default; overridden inline per DAG (DBT_TARGET=spark dbt ...)
+      DBT_TARGET: duckdb
+      # URL of the file-upload API, reachable from inside this container via host networking.
+      FILE_UPLOAD_API_URL: "http://host.docker.internal:8080"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt
       - ./feeds:/opt/feeds
     ports:
       - "8082:8080"
-    command: airflow standalone
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Create a known admin user before starting standalone so the REST API works with
+    # basic auth (username: airflow, password: airflow).
+    command: >
+      bash -c "
+      airflow db migrate &&
+      airflow users create --username airflow --password airflow --firstname Airflow --lastname Admin --role Admin --email airflow@localhost 2>/dev/null || true &&
+      airflow standalone
+      "
 
   # Marimo notebook — queries both DuckDB and Spark side by side
   # Note: ./notebook/ contains the Dockerfile; ./notebooks/ contains the Python files (volume-mounted)
