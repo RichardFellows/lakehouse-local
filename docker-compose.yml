@@ -96,6 +96,7 @@ services:
       DBT_TARGET: duckdb
       # URL of the file-upload API, reachable from inside this container via host networking.
       FILE_UPLOAD_API_URL: "http://host.docker.internal:8080"
+      INTERNAL_API_TOKEN: "change-me-in-production"
     volumes:
       - ./dags:/opt/airflow/dags
       - ./dbt_project:/opt/dbt

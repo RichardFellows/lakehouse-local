@@ -29,12 +29,36 @@ from airflow.operators.python import PythonOperator
 S3_BUCKET = "raw-data"
 S3_ENDPOINT = "http://localstack:4566"
 FILE_UPLOAD_API_URL = os.environ.get("FILE_UPLOAD_API_URL", "http://host.docker.internal:8080")
+INTERNAL_API_TOKEN = os.environ.get("INTERNAL_API_TOKEN", "change-me-in-production")
 
 default_args = {
     "owner": "lakehouse",
     "retries": 1,
     "retry_delay": timedelta(minutes=2),
 }
+
+
+def _notify_api(context, outcome: str):
+    """
+    Push the terminal processing status back to the file-upload API.
+    Called by on_success_callback / on_failure_callback so the SSE stream
+    can deliver an instant update instead of waiting for the next Airflow poll.
+    Failures here are non-fatal: the API's 30 s Airflow fallback will catch up.
+    """
+    import requests as _req
+
+    upload_id = context["dag_run"].conf.get("upload_id", "")
+    try:
+        r = _req.patch(
+            f"{FILE_UPLOAD_API_URL}/internal/uploads/{upload_id}/status",
+            json={"status": outcome},
+            headers={"X-Internal-Token": INTERNAL_API_TOKEN},
+            timeout=10,
+        )
+        r.raise_for_status()
+        print(f"Notified API: upload {upload_id} → {outcome}")
+    except Exception as exc:
+        print(f"Warning: API notification failed ({exc}); the 30 s fallback will sync status")
 
 
 def _s3_client():
@@ -241,6 +265,8 @@ with DAG(
     default_args=default_args,
     tags=["file-upload", "validation"],
     doc_md=__doc__,
+    on_success_callback=lambda ctx: _notify_api(ctx, "succeeded"),
+    on_failure_callback=lambda ctx: _notify_api(ctx, "failed"),
 ) as dag:
 
     download = PythonOperator(
