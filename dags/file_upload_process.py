@@ -105,6 +105,14 @@ def fetch_contract(**context):
     context["ti"].xcom_push(key="contract", value=contract)
 
 
+def _dotnet_fmt_to_strptime(fmt: str) -> str:
+    """Convert a .NET date format string to a Python strptime format string."""
+    return (fmt
+            .replace("yyyy", "%Y").replace("yy", "%y")
+            .replace("MM", "%m").replace("dd", "%d")
+            .replace("HH", "%H").replace("mm", "%M").replace("ss", "%S"))
+
+
 def validate_and_report(**context):
     """
     Parse the uploaded file, run full validation against the contract, and generate
@@ -115,11 +123,13 @@ def validate_and_report(**context):
     - Non-nullable columns have a value
     - Numeric type coercion and min/max constraint checks
     - String pattern constraints (if specified)
+    - Enum allowed-values check
 
     The report CSV includes every source row annotated with:
         _status   : "ok" | "error"
         _findings : semicolon-separated finding messages (empty when ok)
     """
+    import re
     import pandas as pd
 
     ti = context["ti"]
@@ -152,7 +162,8 @@ def validate_and_report(**context):
         required: bool = col_def.get("required", False)
         nullable: bool = col_def.get("nullable", True)
         data_type: str = col_def.get("dataType", "string").lower()
-        constraints: list[dict] = col_def.get("constraints", [])
+        # constraints is a dict of named constraints, e.g. {"min": 0, "pattern": "^CP.*"}
+        constraints: dict = col_def.get("constraints") or {}
 
         for i, raw in enumerate(series):
             cell_findings: list[str] = []
@@ -162,35 +173,52 @@ def validate_and_report(**context):
                 if required or not nullable:
                     cell_findings.append(f"[{col_name}] Value is required but missing.")
             else:
-                # Type coercion checks.
                 if data_type in ("integer", "int"):
                     try:
                         val = int(float(raw))
                     except (ValueError, TypeError):
                         cell_findings.append(f"[{col_name}] '{raw}' is not a valid integer.")
-                        val = None
                     else:
-                        _check_numeric_constraints(col_name, val, constraints, cell_findings)
+                        if "min" in constraints and val < constraints["min"]:
+                            cell_findings.append(f"[{col_name}] {val} is below minimum {constraints['min']}.")
+                        if "max" in constraints and val > constraints["max"]:
+                            cell_findings.append(f"[{col_name}] {val} exceeds maximum {constraints['max']}.")
 
                 elif data_type in ("decimal", "float", "number"):
                     try:
                         val = float(raw)
                     except (ValueError, TypeError):
                         cell_findings.append(f"[{col_name}] '{raw}' is not a valid number.")
-                        val = None
                     else:
-                        _check_numeric_constraints(col_name, val, constraints, cell_findings)
+                        if "min" in constraints and val < constraints["min"]:
+                            cell_findings.append(f"[{col_name}] {val} is below minimum {constraints['min']}.")
+                        if "max" in constraints and val > constraints["max"]:
+                            cell_findings.append(f"[{col_name}] {val} exceeds maximum {constraints['max']}.")
 
                 elif data_type == "date":
-                    fmt = col_def.get("format", "%Y-%m-%d")
+                    raw_fmt = col_def.get("format", "yyyy-MM-dd")
+                    py_fmt = _dotnet_fmt_to_strptime(raw_fmt)
                     try:
-                        datetime.strptime(raw, fmt)
+                        datetime.strptime(raw, py_fmt)
                     except ValueError:
-                        cell_findings.append(f"[{col_name}] '{raw}' does not match date format '{fmt}'.")
+                        cell_findings.append(f"[{col_name}] '{raw}' does not match date format '{raw_fmt}'.")
 
                 elif data_type == "boolean":
                     if raw.lower() not in ("true", "false", "1", "0", "yes", "no"):
                         cell_findings.append(f"[{col_name}] '{raw}' is not a valid boolean.")
+
+                elif data_type == "enum":
+                    allowed: list = constraints.get("enum", [])
+                    case_sensitive: bool = constraints.get("caseSensitive", True)
+                    cmp = raw if case_sensitive else raw.lower()
+                    allowed_cmp = allowed if case_sensitive else [v.lower() for v in allowed]
+                    if allowed and cmp not in allowed_cmp:
+                        cell_findings.append(f"[{col_name}] '{raw}' is not one of the allowed values: {allowed}.")
+
+                elif data_type in ("string", "str"):
+                    pattern = constraints.get("pattern")
+                    if pattern and not re.fullmatch(pattern, raw):
+                        cell_findings.append(f"[{col_name}] '{raw}' does not match pattern '{pattern}'.")
 
             if cell_findings:
                 findings_per_row[i].extend(cell_findings)
@@ -225,14 +253,6 @@ def validate_and_report(**context):
     context["ti"].xcom_push(key="report_path", value=report_path)
     context["ti"].xcom_push(key="manifest_path", value=manifest_path)
     context["ti"].xcom_push(key="outcome", value=outcome)
-
-
-def _check_numeric_constraints(col_name: str, val, constraints: list[dict], findings: list[str]):
-    for c in constraints:
-        if c.get("type") == "min" and val < c["value"]:
-            findings.append(f"[{col_name}] {val} is below minimum {c['value']}.")
-        elif c.get("type") == "max" and val > c["value"]:
-            findings.append(f"[{col_name}] {val} exceeds maximum {c['value']}.")
 
 
 def upload_results(**context):
