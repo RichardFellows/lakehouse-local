@@ -179,9 +179,9 @@ def validate_and_report(**context):
                     except (ValueError, TypeError):
                         cell_findings.append(f"[{col_name}] '{raw}' is not a valid integer.")
                     else:
-                        if "min" in constraints and val < constraints["min"]:
+                        if constraints.get("min") is not None and val < constraints["min"]:
                             cell_findings.append(f"[{col_name}] {val} is below minimum {constraints['min']}.")
-                        if "max" in constraints and val > constraints["max"]:
+                        if constraints.get("max") is not None and val > constraints["max"]:
                             cell_findings.append(f"[{col_name}] {val} exceeds maximum {constraints['max']}.")
 
                 elif data_type in ("decimal", "float", "number"):
@@ -190,9 +190,9 @@ def validate_and_report(**context):
                     except (ValueError, TypeError):
                         cell_findings.append(f"[{col_name}] '{raw}' is not a valid number.")
                     else:
-                        if "min" in constraints and val < constraints["min"]:
+                        if constraints.get("min") is not None and val < constraints["min"]:
                             cell_findings.append(f"[{col_name}] {val} is below minimum {constraints['min']}.")
-                        if "max" in constraints and val > constraints["max"]:
+                        if constraints.get("max") is not None and val > constraints["max"]:
                             cell_findings.append(f"[{col_name}] {val} exceeds maximum {constraints['max']}.")
 
                 elif data_type == "date":
